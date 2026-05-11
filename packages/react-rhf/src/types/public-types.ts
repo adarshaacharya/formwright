@@ -26,10 +26,15 @@ export interface FormRuntimeProviderProps {
 export interface FormRuntimeRootProps {
   rootLayoutId?: string;
   fieldRendererMap?: Record<string, FieldRendererComponent>;
+  arrayFieldRendererMap?: Record<string, ArrayFieldRendererComponent>;
   layoutRendererMap?: Record<string, LayoutRendererComponent>;
 }
 
 export interface FieldRendererBaseProps {
+  path: string;
+}
+
+export interface ArrayFieldRendererBaseProps {
   path: string;
 }
 
@@ -39,6 +44,7 @@ export interface LayoutRendererBaseProps {
 }
 
 export type FieldRendererComponent = (props: FieldRendererBaseProps) => React.JSX.Element | null;
+export type ArrayFieldRendererComponent = (props: ArrayFieldRendererBaseProps) => React.JSX.Element | null;
 export type LayoutRendererComponent = (props: LayoutRendererBaseProps) => React.JSX.Element | null;
 
 export interface UseFormFieldResult {
@@ -53,6 +59,16 @@ export interface UseFormFieldResult {
 export interface UseFormLayoutResult {
   layout: ResolvedLayoutModel;
   state?: DerivedLayoutState;
+}
+
+export interface UseFormArrayResult {
+  path: string;
+  visible: boolean;
+  disabled: boolean;
+  readonly: boolean;
+  items: Array<{ id: string; value: unknown }>;
+  append: (value?: unknown) => void;
+  remove: (index: number) => void;
 }
 
 export interface UseDatasourceOptionsResult {

@@ -24,6 +24,10 @@ export const basicSchema: FormDefinition = {
         format: "email",
         required: true,
       },
+      tags: {
+        valueType: "array",
+        itemType: "string",
+      },
     },
   },
   uiSchema: {
@@ -46,6 +50,10 @@ export const basicSchema: FormDefinition = {
         label: "Contact Email",
         placeholder: "name@example.com",
       },
+      tags: {
+        fieldType: "array",
+        label: "Tags",
+      },
     },
     layout: {
       type: "stack",
@@ -54,6 +62,7 @@ export const basicSchema: FormDefinition = {
         { type: "field", ref: "accountType" },
         { type: "field", ref: "company.name" },
         { type: "field", ref: "contact.email" },
+        { type: "field", ref: "tags" },
       ],
     },
   },
