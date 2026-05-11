@@ -1,0 +1,18 @@
+{
+  "name": "formwright",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Schema-driven form engine monorepo",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}

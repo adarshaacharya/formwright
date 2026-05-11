@@ -1,0 +1,20 @@
+{
+  "name": "@formwright/plugins-async",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: build @formwright/plugins-async\"",
+    "dev": "echo \"TODO: dev @formwright/plugins-async\"",
+    "lint": "echo \"TODO: lint @formwright/plugins-async\"",
+    "test": "echo \"TODO: test @formwright/plugins-async\"",
+    "typecheck": "echo \"TODO: typecheck @formwright/plugins-async\"",
+    "clean": "rm -rf dist build coverage"
+  },
+  "dependencies": {
+    "@formwright/contract": "workspace:*",
+    "@formwright/core": "workspace:*"
+  }
+}

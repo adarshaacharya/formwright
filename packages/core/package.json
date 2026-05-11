@@ -1,0 +1,19 @@
+{
+  "name": "@formwright/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: build @formwright/core\"",
+    "dev": "echo \"TODO: dev @formwright/core\"",
+    "lint": "echo \"TODO: lint @formwright/core\"",
+    "test": "echo \"TODO: test @formwright/core\"",
+    "typecheck": "echo \"TODO: typecheck @formwright/core\"",
+    "clean": "rm -rf dist build coverage"
+  },
+  "dependencies": {
+    "@formwright/contract": "workspace:*"
+  }
+}

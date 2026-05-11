@@ -1,0 +1,16 @@
+{
+  "name": "@formwright/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: build @formwright/contract\"",
+    "dev": "echo \"TODO: dev @formwright/contract\"",
+    "lint": "echo \"TODO: lint @formwright/contract\"",
+    "test": "echo \"TODO: test @formwright/contract\"",
+    "typecheck": "echo \"TODO: typecheck @formwright/contract\"",
+    "clean": "rm -rf dist build coverage"
+  }
+}

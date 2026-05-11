@@ -1,0 +1,20 @@
+{
+  "name": "@formwright/plugins-basic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: build @formwright/plugins-basic\"",
+    "dev": "echo \"TODO: dev @formwright/plugins-basic\"",
+    "lint": "echo \"TODO: lint @formwright/plugins-basic\"",
+    "test": "echo \"TODO: test @formwright/plugins-basic\"",
+    "typecheck": "echo \"TODO: typecheck @formwright/plugins-basic\"",
+    "clean": "rm -rf dist build coverage"
+  },
+  "dependencies": {
+    "@formwright/contract": "workspace:*",
+    "@formwright/core": "workspace:*"
+  }
+}
