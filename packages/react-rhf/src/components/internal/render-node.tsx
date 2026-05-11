@@ -1,4 +1,4 @@
-import type { FieldPath } from "@formwright/contract";
+import type { ArrayFieldDefinition, FieldPath } from "@formwright/contract";
 import type { ResolvedFieldModel, ResolvedLayoutModel } from "@formwright/core";
 
 import { useDatasourceOptions } from "../../hooks/use-datasource-options";
@@ -31,6 +31,10 @@ function getLayoutState(
   return layout.id ? evaluation.layoutState[layout.id] : undefined;
 }
 
+function isArrayFieldDefinition(field: ResolvedFieldModel["dataField"]): field is ArrayFieldDefinition {
+  return field.valueType === "array";
+}
+
 function FieldNode({
   path,
   fieldRendererMap,
@@ -47,7 +51,7 @@ function FieldNode({
     throw new Error(`Field not found in resolved model: ${path}`);
   }
 
-  if (resolvedField.valueType === "array") {
+  if (isArrayFieldDefinition(resolvedField.dataField)) {
     return (
       <ArrayFieldNode
         path={path}
@@ -107,7 +111,7 @@ function ArrayFieldNode({
   };
   const Renderer =
     arrayFieldRendererMap[field.rendererKey] ?? arrayFieldRendererMap[field.fieldType] ?? DefaultArrayField;
-  const itemSchema = field.dataField.itemSchema ?? undefined;
+  const itemSchema = isArrayFieldDefinition(field.dataField) ? field.dataField.itemSchema ?? undefined : undefined;
   const componentProps = (field.uiField?.componentProps ?? {}) as {
     itemLayout?: string[];
     itemFields?: Record<string, { label?: string; placeholder?: string; inputType?: string }>;

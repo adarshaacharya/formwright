@@ -11,7 +11,7 @@ export function FormRuntimeProvider({
   hiddenFieldPolicy = "keep",
   children,
 }: FormRuntimeProviderProps): React.JSX.Element {
-  const evaluationValues = runtime.evaluate().values;
+  const evaluationValues = useMemo(() => runtime.evaluate().values, [runtime]);
   const defaultValues = useMemo(
     () => ({ ...evaluationValues, ...(initialValues ?? {}) }),
     [evaluationValues, initialValues],
@@ -22,10 +22,11 @@ export function FormRuntimeProvider({
     mode: "onChange",
     resolver: validationResolver,
   });
-  const evaluationDependencies = runtime.getEvaluationDependencies();
+  const evaluationDependencies = useMemo(() => runtime.getEvaluationDependencies(), [runtime]);
+  const watchConfig = evaluationDependencies.length > 0 ? { name: evaluationDependencies as never } : {};
   const watchedValues = useWatch({
     control: form.control,
-    name: evaluationDependencies.length > 0 ? evaluationDependencies : undefined,
+    ...watchConfig,
   }) as unknown;
   const values = useMemo(() => {
     if (!evaluationDependencies.length) return defaultValues;

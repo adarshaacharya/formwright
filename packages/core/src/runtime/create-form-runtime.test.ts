@@ -109,4 +109,51 @@ describe("createFormRuntime", () => {
     expect(result.fieldState["company.name"].disabled).toBe(true);
     expect(result.fieldState["contact.email"].disabled).toBe(true);
   });
+
+  it("collects field dependencies from rules, computed values, data sources, and layout visibility", () => {
+    const form = makeForm({
+      behaviorSchema: {
+        rules: [
+          {
+            id: "show-company-name-when-company",
+            when: { eq: [{ var: "accountType" }, "company"] },
+            effects: [{ type: "show", target: "company.name" }],
+          },
+        ],
+        computed: [
+          {
+            target: "contact.email",
+            expression: { concat: [{ var: "accountType" }, "@example.com"] },
+            runOn: ["accountType"],
+          },
+        ],
+        dataSources: {
+          cities: {
+            type: "remote",
+            endpoint: "/api/cities",
+            dependsOn: ["accountType", "company.name"],
+          },
+        },
+      },
+      uiSchema: {
+        ...makeForm().uiSchema,
+        layout: {
+          type: "stack",
+          id: "root",
+          visibleWhen: { eq: [{ var: "company.name" }, "Acme"] },
+          children: [
+            { type: "field", ref: "accountType" },
+            { type: "field", ref: "company.name" },
+            { type: "field", ref: "contact.email" },
+          ],
+        },
+      },
+    });
+
+    const runtime = createFormRuntime({ form, context: { mode: "edit" } });
+    expect(runtime.getEvaluationDependencies()).toEqual(
+      expect.arrayContaining(["accountType", "company.name"]),
+    );
+    expect(runtime.getEvaluationDependencies()).not.toContain("$mode");
+  });
 });

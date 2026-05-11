@@ -10,12 +10,17 @@
     "dev": "echo \"TODO: dev @formwright/renderers-default\"",
     "lint": "echo \"TODO: lint @formwright/renderers-default\"",
     "test": "echo \"TODO: test @formwright/renderers-default\"",
-    "typecheck": "echo \"TODO: typecheck @formwright/renderers-default\"",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist build coverage"
   },
   "dependencies": {
     "@formwright/contract": "workspace:*",
-    "@formwright/core": "workspace:*",
-    "@formwright/react-rhf": "workspace:*"
+    "@formwright/react-rhf": "workspace:*",
+    "react-hook-form": "^7.53.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "react": "^18.3.1",
+    "typescript": "^5.5.4"
   }
 }

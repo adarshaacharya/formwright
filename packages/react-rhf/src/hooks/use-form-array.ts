@@ -26,8 +26,12 @@ export function useFormArray(path: FieldPath): UseFormArrayResult {
 
   const fieldArray = useFieldArray({
     control: form.control,
-    name: path,
-  });
+    name: path as never,
+  }) as unknown as {
+    fields: Array<{ id: string }>;
+    append: (value: unknown) => void;
+    remove: (index: number) => void;
+  };
 
   return {
     path,

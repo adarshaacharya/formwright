@@ -1,6 +1,5 @@
 import type {
   CreateFormRuntimeInput,
-  DataFieldDefinition,
   DataSourceLoadResult,
   DerivedFieldState,
   DerivedLayoutState,
@@ -10,6 +9,7 @@ import type {
   ResolvedFieldModel,
   ResolvedLayoutModel,
 } from "@formwright/core";
+import type { DataFieldDefinition } from "@formwright/contract";
 import type { Resolver } from "react-hook-form";
 
 export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {

@@ -133,12 +133,22 @@ importers:
       '@formwright/contract':
         specifier: workspace:*
         version: link:../contract
-      '@formwright/core':
-        specifier: workspace:*
-        version: link:../core
       '@formwright/react-rhf':
         specifier: workspace:*
         version: link:../react-rhf
+      react-hook-form:
+        specifier: ^7.53.0
+        version: 7.75.0(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.28
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
 
 packages:
 

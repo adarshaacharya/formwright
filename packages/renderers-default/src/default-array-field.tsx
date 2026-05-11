@@ -1,7 +1,7 @@
 import type { ArrayFieldDefinition, DataFieldDefinition } from "@formwright/contract";
 import { useController, useFormContext } from "react-hook-form";
 
-import type { RenderArrayProps } from "../../types/public-types";
+import type { RenderArrayProps } from "@formwright/react-rhf";
 
 function isArrayFieldDefinition(field: DataFieldDefinition): field is ArrayFieldDefinition {
   return field.valueType === "array";
@@ -150,4 +150,8 @@ export function DefaultArrayField({
       </button>
     </div>
   );
+}
+
+export function DefaultArrayFieldRenderer(props: RenderArrayProps): React.JSX.Element | null {
+  return <DefaultArrayField {...props} />;
 }
