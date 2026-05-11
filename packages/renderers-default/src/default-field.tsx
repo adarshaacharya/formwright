@@ -9,12 +9,10 @@ export function DefaultField({
   onBlur,
   loading,
 }: RenderFieldProps): React.JSX.Element | null {
-  if (!state.visible) return null;
-
   const label = field.uiField?.label ?? field.path;
   if (field.fieldType === "select") {
     return (
-      <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
         <label>{label}</label>
         <select
           value={(value as string | undefined) ?? ""}
@@ -35,7 +33,7 @@ export function DefaultField({
   }
 
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
       <label>{label}</label>
       <input
         value={(value as string | number | undefined) ?? ""}

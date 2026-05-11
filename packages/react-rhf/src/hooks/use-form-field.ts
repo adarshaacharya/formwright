@@ -30,6 +30,7 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   const controller = useController<Record<string, unknown>, FieldPath>({
     control: form.control,
     name: path,
+    shouldUnregister: false,
     rules: validationRules,
   });
   const wasVisibleRef = useRef(state.visible);

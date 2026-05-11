@@ -114,13 +114,11 @@ export function DefaultArrayField({
   itemLayout,
   itemFieldMeta,
 }: RenderArrayProps): React.JSX.Element | null {
-  if (!state.visible) return null;
-
   const isObjectArray = isArrayFieldDefinition(field.dataField) && field.dataField.itemType === "object";
   const computedItemLayout = itemLayout ?? Object.keys(itemSchema ?? {});
 
   return (
-    <div style={{ display: "grid", gap: 8 }}>
+    <div style={{ display: state.visible ? "grid" : "none", gap: 8 }}>
       <label>{field.uiField?.label ?? field.path}</label>
       {items.map((item, index) => (
         <div key={item.id} style={{ display: "grid", gap: 8, border: "1px solid #ddd", padding: 8 }}>
