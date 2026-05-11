@@ -16,5 +16,8 @@
   "dependencies": {
     "@formwright/contract": "workspace:*",
     "@formwright/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }
