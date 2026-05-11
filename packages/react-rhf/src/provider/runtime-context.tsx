@@ -1,11 +1,12 @@
 import { createContext, useContext } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
-import type { FormRuntime } from "@formwright/core";
+import type { FormRuntime, RuntimeEvaluationResult } from "@formwright/core";
 
 export interface RuntimeAdapterContextValue {
   runtime: FormRuntime;
   form: UseFormReturn<Record<string, unknown>>;
+  evaluation: RuntimeEvaluationResult;
 }
 
 const runtimeContext = createContext<RuntimeAdapterContextValue | null>(null);

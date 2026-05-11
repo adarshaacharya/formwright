@@ -1,6 +1,7 @@
 import type { FieldPath, FormDefinition, LayoutNode, RuleExpression } from "@formwright/contract";
+import { createPluginRegistry } from "../plugins/types";
 import type { ResolvedFieldModel, ResolvedLayoutModel } from "../resolved/types";
-import type { CreateFormRuntimeInput, FormRuntime } from "./types";
+import type { CreateFormRuntimeInput, EffectApplyInput, FormRuntime, OperatorEvaluateInput } from "./types";
 import type { DerivedFieldState, DerivedLayoutState, RuntimeEvaluationResult } from "./types";
 
 function toResolvedFields(form: FormDefinition): Record<FieldPath, ResolvedFieldModel> {
@@ -142,10 +143,49 @@ function evalExpr(expr: RuleExpression, values: Record<string, unknown>): unknow
   return false;
 }
 
+function getExpressionOperatorType(expr: RuleExpression): string {
+  const keys = Object.keys(expr);
+  return keys[0] ?? "";
+}
+
+function applyBuiltInEffect(
+  effect: EffectApplyInput["effect"],
+  fieldState: Record<FieldPath, DerivedFieldState>,
+  layoutState: Record<string, DerivedLayoutState>,
+  values: Record<string, unknown>,
+): void {
+  if (effect.type === "show" && fieldState[effect.target]) {
+    fieldState[effect.target].visible = true;
+  }
+  if (effect.type === "hide" && fieldState[effect.target]) {
+    fieldState[effect.target].visible = false;
+  }
+  if (effect.type === "enable" && fieldState[effect.target]) {
+    fieldState[effect.target].disabled = false;
+  }
+  if (effect.type === "disable" && fieldState[effect.target]) {
+    fieldState[effect.target].disabled = true;
+  }
+  if (effect.type === "require" && fieldState[effect.target]) {
+    fieldState[effect.target].required = effect.value ?? true;
+  }
+  if (effect.type === "setValue") {
+    values[effect.target] = effect.value;
+  }
+  if (effect.type === "clearValue") {
+    values[effect.target] = undefined;
+  }
+  if (effect.type === "setLayoutProp" && layoutState[effect.target] && effect.prop === "visible") {
+    layoutState[effect.target].visible = Boolean(effect.value);
+  }
+}
+
 export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
   const form = input.form;
   const resolvedFields = toResolvedFields(form);
   const resolvedLayout = toResolvedLayout(form.uiSchema.layout);
+  const pluginRegistry = createPluginRegistry();
+  pluginRegistry.registerMany(input.plugins ?? []);
 
   return {
     getFormDefinition() {
@@ -164,34 +204,48 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
       const values = { ...getInitialValues(form), ...(runtimeValues ?? {}) };
 
       for (const rule of form.behaviorSchema?.rules ?? []) {
-        const matched = Boolean(evalExpr(rule.when, values));
+        const operatorType = getExpressionOperatorType(rule.when);
+        const operator = pluginRegistry.findOperator(operatorType);
+        const matched = operator
+          ? Boolean(
+              operator.evaluate({
+                expression: rule.when as unknown as OperatorEvaluateInput["expression"],
+                values,
+                context: input.context ?? {},
+              }),
+            )
+          : Boolean(evalExpr(rule.when, values));
         if (!matched) continue;
 
         for (const effect of rule.effects) {
-          if (effect.type === "show" && fieldState[effect.target]) {
-            fieldState[effect.target].visible = true;
+          const effectPlugin = pluginRegistry.findEffect(effect.type);
+          if (effectPlugin) {
+            const pluginResult = effectPlugin.apply({
+              effect,
+              values,
+              derivedState: { fields: fieldState, layouts: layoutState },
+              context: input.context ?? {},
+            });
+
+            for (const mutation of pluginResult.fieldMutations ?? []) {
+              if (fieldState[mutation.path]) {
+                fieldState[mutation.path] = { ...fieldState[mutation.path], ...mutation.patch };
+              }
+            }
+
+            for (const mutation of pluginResult.layoutMutations ?? []) {
+              if (layoutState[mutation.id]) {
+                layoutState[mutation.id] = { ...layoutState[mutation.id], ...mutation.patch };
+              }
+            }
+
+            for (const mutation of pluginResult.valueMutations ?? []) {
+              values[mutation.path] = mutation.value;
+            }
+            continue;
           }
-          if (effect.type === "hide" && fieldState[effect.target]) {
-            fieldState[effect.target].visible = false;
-          }
-          if (effect.type === "enable" && fieldState[effect.target]) {
-            fieldState[effect.target].disabled = false;
-          }
-          if (effect.type === "disable" && fieldState[effect.target]) {
-            fieldState[effect.target].disabled = true;
-          }
-          if (effect.type === "require" && fieldState[effect.target]) {
-            fieldState[effect.target].required = effect.value ?? true;
-          }
-          if (effect.type === "setValue") {
-            values[effect.target] = effect.value;
-          }
-          if (effect.type === "clearValue") {
-            values[effect.target] = undefined;
-          }
-          if (effect.type === "setLayoutProp" && layoutState[effect.target] && effect.prop === "visible") {
-            layoutState[effect.target].visible = Boolean(effect.value);
-          }
+
+          applyBuiltInEffect(effect, fieldState, layoutState, values);
         }
       }
 

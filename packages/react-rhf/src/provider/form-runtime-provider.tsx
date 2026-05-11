@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 
 import type { FormRuntimeProviderProps } from "../types/public-types";
 import { RuntimeContextProvider } from "./runtime-context";
@@ -19,9 +19,11 @@ export function FormRuntimeProvider({
     defaultValues,
     mode: "onChange",
   });
+  const values = useWatch({ control: form.control }) as Record<string, unknown>;
+  const evaluation = useMemo(() => runtime.evaluate(values), [runtime, values]);
 
   return (
-    <RuntimeContextProvider value={{ runtime, form }}>
+    <RuntimeContextProvider value={{ runtime, form, evaluation }}>
       <FormProvider {...form}>{children}</FormProvider>
     </RuntimeContextProvider>
   );
