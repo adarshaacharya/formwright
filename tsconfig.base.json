@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@formwright/contract": ["packages/contract/src/index.ts"],
+      "@formwright/core": ["packages/core/src/index.ts"],
+      "@formwright/react-rhf": ["packages/react-rhf/src/index.ts"],
+      "@formwright/renderers-default": ["packages/renderers-default/src/index.ts"],
+      "@formwright/plugins-basic": ["packages/plugins-basic/src/index.ts"],
+      "@formwright/plugins-async": ["packages/plugins-async/src/index.ts"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/contract" },
+    { "path": "./packages/core" },
+    { "path": "./packages/react-rhf" },
+    { "path": "./packages/renderers-default" },
+    { "path": "./packages/plugins-basic" },
+    { "path": "./packages/plugins-async" },
+    { "path": "./apps/playground" },
+    { "path": "./apps/docs-demo" }
+  ]
+}
