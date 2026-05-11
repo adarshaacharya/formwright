@@ -16,6 +16,7 @@ export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {
 
 export interface FormRuntimeProviderProps {
   runtime: FormRuntime;
+  initialValues?: Record<string, unknown>;
   children?: React.ReactNode;
 }
 

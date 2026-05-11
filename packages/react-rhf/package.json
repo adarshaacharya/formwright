@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@formwright/contract": "workspace:*",
-    "@formwright/core": "workspace:*"
+    "@formwright/core": "workspace:*",
+    "react-hook-form": "^7.53.0"
   },
   "peerDependencies": {
     "react": ">=18"

@@ -183,7 +183,7 @@ export interface FormRuntime {
   getFormDefinition(): FormDefinition;
   getResolvedFields(): Record<FieldPath, ResolvedFieldModel>;
   getResolvedLayout(): ResolvedLayoutModel;
-  evaluate(): RuntimeEvaluationResult;
+  evaluate(values?: Record<string, unknown>): RuntimeEvaluationResult;
 }
 
 export interface FieldPlugin {

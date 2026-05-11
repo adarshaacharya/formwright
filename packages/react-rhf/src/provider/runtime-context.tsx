@@ -1,20 +1,26 @@
 import { createContext, useContext } from "react";
+import type { UseFormReturn } from "react-hook-form";
 
 import type { FormRuntime } from "@formwright/core";
 
-const runtimeContext = createContext<FormRuntime | null>(null);
-
-export function RuntimeContextProvider({
-  runtime,
-  children,
-}: {
+export interface RuntimeAdapterContextValue {
   runtime: FormRuntime;
-  children?: React.ReactNode;
-}): React.JSX.Element {
-  return <runtimeContext.Provider value={runtime}>{children}</runtimeContext.Provider>;
+  form: UseFormReturn<Record<string, unknown>>;
 }
 
-export function useRuntimeContext(): FormRuntime {
+const runtimeContext = createContext<RuntimeAdapterContextValue | null>(null);
+
+export function RuntimeContextProvider({
+  value,
+  children,
+}: {
+  value: RuntimeAdapterContextValue;
+  children?: React.ReactNode;
+}): React.JSX.Element {
+  return <runtimeContext.Provider value={value}>{children}</runtimeContext.Provider>;
+}
+
+export function useRuntimeContext(): RuntimeAdapterContextValue {
   const runtime = useContext(runtimeContext);
   if (!runtime) {
     throw new Error("FormRuntime context is missing. Wrap components in FormRuntimeProvider.");

@@ -8,5 +8,5 @@ export function useCreateFormRuntime(input: CreateFormRuntimeInput): FormRuntime
 }
 
 export function useFormRuntime(): FormRuntime {
-  return useRuntimeContext();
+  return useRuntimeContext().runtime;
 }

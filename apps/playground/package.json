@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo \"TODO: build playground\"",
-    "dev": "echo \"TODO: dev playground\"",
+    "build": "vite build",
+    "dev": "vite",
     "lint": "echo \"TODO: lint playground\"",
     "test": "echo \"TODO: test playground\"",
-    "typecheck": "echo \"TODO: typecheck playground\"",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist build coverage"
   },
   "dependencies": {
@@ -17,6 +17,15 @@
     "@formwright/plugins-async": "workspace:*",
     "@formwright/plugins-basic": "workspace:*",
     "@formwright/react-rhf": "workspace:*",
-    "@formwright/renderers-default": "workspace:*"
+    "@formwright/renderers-default": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4"
   }
 }

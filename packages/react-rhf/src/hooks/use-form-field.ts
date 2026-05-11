@@ -1,16 +1,21 @@
 import type { FieldPath } from "@formwright/contract";
+import { useFormContext, useWatch } from "react-hook-form";
 import type { UseFormFieldResult } from "../types/public-types";
 import { useFormRuntime } from "./use-form-runtime";
 
 export function useFormField(path: FieldPath): UseFormFieldResult {
   const runtime = useFormRuntime();
+  const form = useFormContext<Record<string, unknown>>();
   const field = runtime.getResolvedFields()[path];
 
   if (!field) {
     throw new Error(`Field not found in resolved model: ${path}`);
   }
 
-  const evaluation = runtime.evaluate();
+  const watchedValue = useWatch({ control: form.control, name: path });
+  const allValues = form.watch();
+  const evaluation = runtime.evaluate(allValues);
+  const fieldStateMeta = form.getFieldState(path);
   const state = evaluation.fieldState[path] ?? {
     path,
     visible: true,
@@ -22,13 +27,17 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   return {
     field,
     state,
-    value: evaluation.values[path],
-    error: state.errors?.[0],
-    setValue() {
-      throw new Error("setValue is not implemented yet in the runtime adapter.");
+    value: watchedValue,
+    error: fieldStateMeta.error?.message ?? state.errors?.[0],
+    setValue(value) {
+      form.setValue(path, value, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
     },
     onBlur() {
-      // Placeholder to keep renderer contracts stable before RHF wiring is implemented.
+      form.trigger(path);
     },
   };
 }
