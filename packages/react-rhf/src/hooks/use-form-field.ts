@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import type { FieldPath } from "@formwright/contract";
-import { useFormContext, useWatch } from "react-hook-form";
+import { useController, useFormContext } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 import type { UseFormFieldResult } from "../types/public-types";
 import { toRHFValidationRules } from "../validation/to-rhf-validation-rules";
@@ -16,7 +16,6 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
     throw new Error(`Field not found in resolved model: ${path}`);
   }
 
-  const watchedValue = useWatch({ control: form.control, name: path });
   const fieldStateMeta = form.getFieldState(path);
   const state = evaluation.fieldState[path] ?? {
     path,
@@ -29,28 +28,22 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
     () => toRHFValidationRules(field.dataField, state.required),
     [field.dataField, state.required],
   );
-
-  useEffect(() => {
-    form.register(path, validationRules);
-    return () => {
-      form.unregister(path);
-    };
-  }, [form, path, validationRules]);
+  const controller = useController<Record<string, unknown>, FieldPath>({
+    control: form.control,
+    name: path,
+    rules: validationRules,
+  });
 
   return {
     field,
     state,
-    value: watchedValue,
-    error: fieldStateMeta.error?.message ?? state.errors?.[0],
+    value: controller.field.value,
+    error: controller.fieldState.error?.message ?? fieldStateMeta.error?.message ?? state.errors?.[0],
     setValue(value) {
-      form.setValue(path, value, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
+      controller.field.onChange(value);
     },
     onBlur() {
-      form.trigger(path);
+      controller.field.onBlur();
     },
   };
 }

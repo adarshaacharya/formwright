@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "react-hook-form": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/react-hook-form/SKILL.md",
+      "computedHash": "b7f82b6311d61233c17062792f6be4137cbd6284b56f8d7e60ef63c7b5836329"
+    }
+  }
+}
