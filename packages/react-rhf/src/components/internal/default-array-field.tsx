@@ -1,24 +1,7 @@
-import type { DataFieldDefinition, FieldPath } from "@formwright/contract";
+import type { DataFieldDefinition } from "@formwright/contract";
 import { useController, useFormContext } from "react-hook-form";
 
-import { useFormArray } from "../../hooks/use-form-array";
-import { useFormRuntime } from "../../hooks/use-form-runtime";
-
-type ItemFieldMeta = Record<string, { label?: string; placeholder?: string; inputType?: string }>;
-
-function parseItemLayout(
-  componentProps: Record<string, unknown> | undefined,
-  itemSchema: Record<string, DataFieldDefinition> | undefined,
-): string[] {
-  const configured =
-    componentProps && Array.isArray(componentProps.itemLayout) ? (componentProps.itemLayout as string[]) : undefined;
-  return configured ?? Object.keys(itemSchema ?? {});
-}
-
-function parseItemFieldMeta(componentProps: Record<string, unknown> | undefined): ItemFieldMeta {
-  if (!componentProps || typeof componentProps.itemFields !== "object") return {};
-  return componentProps.itemFields as ItemFieldMeta;
-}
+import type { RenderArrayProps } from "../../types/public-types";
 
 function buildObjectDefault(itemSchema: Record<string, DataFieldDefinition> | undefined): Record<string, unknown> {
   const next: Record<string, unknown> = {};
@@ -31,7 +14,7 @@ function PrimitiveArrayItem({
   index,
   disabled,
 }: {
-  path: FieldPath;
+  path: string;
   index: number;
   disabled: boolean;
 }): React.JSX.Element {
@@ -56,7 +39,7 @@ function ObjectArrayItemField({
   placeholder,
   inputType,
 }: {
-  path: FieldPath;
+  path: string;
   index: number;
   itemKey: string;
   disabled: boolean;
@@ -92,12 +75,12 @@ function ObjectArrayItem({
   itemLayout,
   itemFieldMeta,
 }: {
-  path: FieldPath;
+  path: string;
   index: number;
   disabled: boolean;
   itemSchema: Record<string, DataFieldDefinition>;
   itemLayout: string[];
-  itemFieldMeta: ItemFieldMeta;
+  itemFieldMeta: Record<string, { label?: string; placeholder?: string; inputType?: string }>;
 }): React.JSX.Element {
   return (
     <div style={{ display: "grid", gap: 8 }}>
@@ -117,44 +100,47 @@ function ObjectArrayItem({
   );
 }
 
-export function DefaultArrayField({ path }: { path: FieldPath }): React.JSX.Element | null {
-  const runtime = useFormRuntime();
-  const resolved = runtime.getResolvedFields()[path];
-  const arrayField = useFormArray(path);
-  if (!arrayField.visible || !resolved || resolved.valueType !== "array") return null;
+export function DefaultArrayField({
+  field,
+  state,
+  items,
+  append,
+  remove,
+  itemSchema,
+  itemLayout,
+  itemFieldMeta,
+}: RenderArrayProps): React.JSX.Element | null {
+  if (!state.visible) return null;
 
-  const isObjectArray = resolved.dataField.itemType === "object";
-  const itemSchema = resolved.dataField.itemSchema;
-  const componentProps = (resolved.uiField?.componentProps ?? {}) as Record<string, unknown>;
-  const itemLayout = parseItemLayout(componentProps, itemSchema);
-  const itemFieldMeta = parseItemFieldMeta(componentProps);
+  const isObjectArray = field.dataField.itemType === "object";
+  const computedItemLayout = itemLayout ?? Object.keys(itemSchema ?? {});
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
-      <label>{resolved.uiField?.label ?? path}</label>
-      {arrayField.items.map((item, index) => (
+      <label>{field.uiField?.label ?? field.path}</label>
+      {items.map((item, index) => (
         <div key={item.id} style={{ display: "grid", gap: 8, border: "1px solid #ddd", padding: 8 }}>
           {isObjectArray ? (
             <ObjectArrayItem
-              path={path}
+              path={field.path}
               index={index}
-              disabled={arrayField.disabled}
+              disabled={state.disabled}
               itemSchema={itemSchema ?? {}}
-              itemLayout={itemLayout}
-              itemFieldMeta={itemFieldMeta}
+              itemLayout={computedItemLayout}
+              itemFieldMeta={itemFieldMeta ?? {}}
             />
           ) : (
-            <PrimitiveArrayItem path={path} index={index} disabled={arrayField.disabled} />
+            <PrimitiveArrayItem path={field.path} index={index} disabled={state.disabled} />
           )}
-          <button type="button" onClick={() => arrayField.remove(index)} disabled={arrayField.disabled}>
+          <button type="button" onClick={() => remove(index)} disabled={state.disabled}>
             remove
           </button>
         </div>
       ))}
       <button
         type="button"
-        onClick={() => arrayField.append(isObjectArray ? buildObjectDefault(itemSchema) : "")}
-        disabled={arrayField.disabled}
+        onClick={() => append(isObjectArray ? buildObjectDefault(itemSchema) : "")}
+        disabled={state.disabled}
       >
         add item
       </button>

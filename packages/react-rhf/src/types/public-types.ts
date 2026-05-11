@@ -1,5 +1,6 @@
 import type {
   CreateFormRuntimeInput,
+  DataFieldDefinition,
   DataSourceLoadResult,
   DerivedFieldState,
   DerivedLayoutState,
@@ -30,22 +31,39 @@ export interface FormRuntimeRootProps {
   layoutRendererMap?: Record<string, LayoutRendererComponent>;
 }
 
-export interface FieldRendererBaseProps {
+interface FieldRendererBaseProps {
   path: string;
 }
 
-export interface ArrayFieldRendererBaseProps {
+interface ArrayFieldRendererBaseProps {
   path: string;
 }
 
-export interface LayoutRendererBaseProps {
-  layout: ResolvedLayoutModel;
-  children?: React.ReactNode;
+export interface RenderFieldProps extends FieldRendererBaseProps {
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onBlur?: () => void;
+  loading?: boolean;
+  options?: DataSourceLoadResult["options"];
 }
 
-export type FieldRendererComponent = (props: FieldRendererBaseProps) => React.JSX.Element | null;
-export type ArrayFieldRendererComponent = (props: ArrayFieldRendererBaseProps) => React.JSX.Element | null;
-export type LayoutRendererComponent = (props: LayoutRendererBaseProps) => React.JSX.Element | null;
+export interface RenderArrayProps extends ArrayFieldRendererBaseProps {
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;
+  items: Array<{ id: string; value: unknown }>;
+  append: (value?: unknown) => void;
+  remove: (index: number) => void;
+  itemSchema?: Record<string, DataFieldDefinition>;
+  itemLayout?: string[];
+  itemFieldMeta?: Record<string, { label?: string; placeholder?: string; inputType?: string }>;
+}
+
+export type FieldRendererComponent = (props: RenderFieldProps) => React.JSX.Element | null;
+export type ArrayFieldRendererComponent = (props: RenderArrayProps) => React.JSX.Element | null;
+export type LayoutRendererComponent = (props: RenderLayoutProps) => React.JSX.Element | null;
 
 export interface UseFormFieldResult {
   field: ResolvedFieldModel;
@@ -74,16 +92,6 @@ export interface UseFormArrayResult {
 export interface UseDatasourceOptionsResult {
   loading: boolean;
   options: DataSourceLoadResult["options"];
-}
-
-export interface RenderFieldProps {
-  field: ResolvedFieldModel;
-  state: DerivedFieldState;
-  value: unknown;
-  error?: string;
-  onChange: (value: unknown) => void;
-  onBlur?: () => void;
-  options?: DataSourceLoadResult["options"];
 }
 
 export interface RenderLayoutProps {

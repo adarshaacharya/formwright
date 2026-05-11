@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { FieldPath } from "@formwright/contract";
-import { useController, useFormContext, useFormState } from "react-hook-form";
+import { useController, useFormContext } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 import type { UseFormFieldResult } from "../types/public-types";
 import { toRHFValidationRules } from "../validation/to-rhf-validation-rules";
@@ -10,7 +10,6 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   const runtime = useFormRuntime();
   const { evaluation, hiddenFieldPolicy } = useRuntimeContext();
   const form = useFormContext<Record<string, unknown>>();
-  useFormState({ control: form.control, name: path });
   const field = runtime.getResolvedFields()[path];
 
   if (!field) {

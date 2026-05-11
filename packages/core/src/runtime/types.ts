@@ -177,12 +177,14 @@ export interface RuntimeEvaluationResult {
   fieldState: Record<FieldPath, DerivedFieldState>;
   layoutState: Record<string, DerivedLayoutState>;
   values: Record<string, unknown>;
+  valueMutations?: ValueMutation[];
 }
 
 export interface FormRuntime {
   getFormDefinition(): FormDefinition;
   getResolvedFields(): Record<FieldPath, ResolvedFieldModel>;
   getResolvedLayout(): ResolvedLayoutModel;
+  getEvaluationDependencies(): FieldPath[];
   evaluate(values?: Record<string, unknown>): RuntimeEvaluationResult;
 }
 

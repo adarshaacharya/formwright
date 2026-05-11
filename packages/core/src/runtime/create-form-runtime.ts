@@ -103,6 +103,111 @@ function collectLayoutState(
   }
 }
 
+function collectExpressionDependencies(expression: RuleExpression, dependencies: Set<FieldPath>): void {
+  if ("var" in expression) {
+    if (!expression.var.startsWith("$")) dependencies.add(expression.var as FieldPath);
+    return;
+  }
+
+  if ("exists" in expression) {
+    dependencies.add(expression.exists as FieldPath);
+    return;
+  }
+
+  if ("eq" in expression) {
+    collectExpressionDependencies(expression.eq[0], dependencies);
+    return;
+  }
+
+  if ("neq" in expression) {
+    collectExpressionDependencies(expression.neq[0], dependencies);
+    return;
+  }
+
+  if ("gt" in expression) {
+    collectExpressionDependencies(expression.gt[0], dependencies);
+    return;
+  }
+
+  if ("gte" in expression) {
+    collectExpressionDependencies(expression.gte[0], dependencies);
+    return;
+  }
+
+  if ("lt" in expression) {
+    collectExpressionDependencies(expression.lt[0], dependencies);
+    return;
+  }
+
+  if ("lte" in expression) {
+    collectExpressionDependencies(expression.lte[0], dependencies);
+    return;
+  }
+
+  if ("in" in expression) {
+    collectExpressionDependencies(expression.in[0], dependencies);
+    return;
+  }
+
+  if ("and" in expression) {
+    for (const node of expression.and) collectExpressionDependencies(node, dependencies);
+    return;
+  }
+
+  if ("or" in expression) {
+    for (const node of expression.or) collectExpressionDependencies(node, dependencies);
+    return;
+  }
+
+  if ("not" in expression) {
+    collectExpressionDependencies(expression.not, dependencies);
+  }
+}
+
+function collectLayoutDependencies(node: LayoutNode, dependencies: Set<FieldPath>): void {
+  if ("visibleWhen" in node && node.visibleWhen) {
+    collectExpressionDependencies(node.visibleWhen, dependencies);
+  }
+
+  if ("children" in node) {
+    for (const child of node.children) collectLayoutDependencies(child, dependencies);
+  }
+
+  if ("tabs" in node) {
+    for (const tab of node.tabs) {
+      for (const child of tab.children) collectLayoutDependencies(child, dependencies);
+    }
+  }
+
+  if ("steps" in node) {
+    for (const step of node.steps) {
+      for (const child of step.children) collectLayoutDependencies(child, dependencies);
+    }
+  }
+}
+
+function collectBehaviorDependencies(form: FormDefinition): FieldPath[] {
+  const dependencies = new Set<FieldPath>();
+
+  for (const rule of form.behaviorSchema?.rules ?? []) {
+    collectExpressionDependencies(rule.when, dependencies);
+  }
+
+  for (const computed of form.behaviorSchema?.computed ?? []) {
+    for (const path of computed.runOn) dependencies.add(path);
+  }
+
+  for (const source of Object.values(form.behaviorSchema?.dataSources ?? {})) {
+    if (source.type === "remote") {
+      for (const dep of source.dependsOn ?? []) dependencies.add(dep as FieldPath);
+    }
+  }
+
+  collectLayoutDependencies(form.uiSchema.layout, dependencies);
+
+  return [...dependencies];
+}
+
 function evalExpr(
   expr: RuleExpression,
   values: Record<string, unknown>,
@@ -218,6 +323,7 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
   };
   const resolvedFields = toResolvedFields(form);
   const resolvedLayout = toResolvedLayout(form.uiSchema.layout);
+  const evaluationDependencies = collectBehaviorDependencies(form);
   const pluginRegistry = createPluginRegistry();
   pluginRegistry.registerMany(input.plugins ?? []);
 
@@ -231,11 +337,20 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
     getResolvedLayout() {
       return resolvedLayout;
     },
+    getEvaluationDependencies() {
+      return evaluationDependencies;
+    },
     evaluate(runtimeValues): RuntimeEvaluationResult {
       const layoutState: Record<string, DerivedLayoutState> = {};
       collectLayoutState(form.uiSchema.layout, layoutState);
       const fieldState = getInitialFieldState(form);
       const values = { ...getInitialValues(form), ...(runtimeValues ?? {}) };
+      const valueMutations: Array<{ path: FieldPath; value: unknown }> = [];
+
+      const pushValueMutation = (path: FieldPath, value: unknown) => {
+        valueMutations.push({ path, value });
+        values[path] = value;
+      };
 
       for (const rule of form.behaviorSchema?.rules ?? []) {
         const operatorType = getExpressionOperatorType(rule.when);
@@ -283,10 +398,25 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
 
             for (const mutation of pluginResult.valueMutations ?? []) {
               if (mutation.path === "*") {
-                for (const key of Object.keys(values)) values[key] = mutation.value;
+                for (const key of Object.keys(values)) {
+                  pushValueMutation(key, mutation.value);
+                }
               } else {
-                values[mutation.path] = mutation.value;
+                pushValueMutation(mutation.path, mutation.value);
               }
+            }
+            continue;
+          }
+
+          if (effect.type === "setValue") {
+            pushValueMutation(effect.target, effect.value);
+            continue;
+          }
+          if (effect.type === "clearValue") {
+            if (effect.target === "*") {
+              for (const key of Object.keys(values)) pushValueMutation(key, undefined);
+            } else {
+              pushValueMutation(effect.target, undefined);
             }
             continue;
           }
@@ -299,6 +429,7 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
         fieldState,
         layoutState,
         values,
+        valueMutations,
       };
     },
   };

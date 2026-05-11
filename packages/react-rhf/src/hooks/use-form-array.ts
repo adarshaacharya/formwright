@@ -1,5 +1,5 @@
 import type { FieldPath } from "@formwright/contract";
-import { useFieldArray, useFormContext } from "react-hook-form";
+import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 
 export interface UseFormArrayResult {
@@ -15,6 +15,7 @@ export interface UseFormArrayResult {
 export function useFormArray(path: FieldPath): UseFormArrayResult {
   const form = useFormContext<Record<string, unknown>>();
   const { evaluation } = useRuntimeContext();
+  const watchedValues = useWatch({ control: form.control, name: path }) as unknown[] | undefined;
   const state = evaluation.fieldState[path] ?? {
     path,
     visible: true,
@@ -35,7 +36,7 @@ export function useFormArray(path: FieldPath): UseFormArrayResult {
     readonly: state.readonly,
     items: fieldArray.fields.map((entry, index) => ({
       id: entry.id,
-      value: form.getValues(`${path}.${index}`),
+      value: watchedValues?.[index],
     })),
     append(value = "") {
       fieldArray.append(value as never);

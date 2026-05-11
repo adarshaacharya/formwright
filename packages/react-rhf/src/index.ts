@@ -2,9 +2,6 @@ export type {
   UseFormRuntimeOptions,
   FormRuntimeProviderProps,
   FormRuntimeRootProps,
-  FieldRendererBaseProps,
-  ArrayFieldRendererBaseProps,
-  LayoutRendererBaseProps,
   FieldRendererComponent,
   ArrayFieldRendererComponent,
   LayoutRendererComponent,
@@ -13,6 +10,7 @@ export type {
   UseFormLayoutResult,
   UseDatasourceOptionsResult,
   RenderFieldProps,
+  RenderArrayProps,
   RenderLayoutProps,
   FormRuntimeSnapshot,
 } from "./types/public-types";

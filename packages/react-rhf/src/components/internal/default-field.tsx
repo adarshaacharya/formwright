@@ -1,25 +1,30 @@
-import type { FieldPath } from "@formwright/contract";
+import type { RenderFieldProps } from "../../types/public-types";
 
-import { useFormField } from "../../hooks/use-form-field";
-
-export function DefaultField({ path }: { path: FieldPath }): React.JSX.Element | null {
-  const { field, state, value, error, setValue, onBlur } = useFormField(path);
+export function DefaultField({
+  field,
+  state,
+  value,
+  error,
+  onChange,
+  onBlur,
+  loading,
+}: RenderFieldProps): React.JSX.Element | null {
   if (!state.visible) return null;
 
-  const label = field.uiField?.label ?? path;
+  const label = field.uiField?.label ?? field.path;
   if (field.fieldType === "select") {
     return (
       <div style={{ display: "grid", gap: 6 }}>
         <label>{label}</label>
         <select
           value={(value as string | undefined) ?? ""}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
-          disabled={state.disabled}
+          disabled={state.disabled || loading}
         >
           <option value="">Select an option</option>
           {(field.uiField?.options ?? []).map((option) => (
-            <option key={`${path}-${String(option.value)}`} value={String(option.value)} disabled={option.disabled}>
+            <option key={`${field.path}-${String(option.value)}`} value={String(option.value)} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
@@ -34,10 +39,10 @@ export function DefaultField({ path }: { path: FieldPath }): React.JSX.Element |
       <label>{label}</label>
       <input
         value={(value as string | number | undefined) ?? ""}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         placeholder={field.uiField?.placeholder}
-        disabled={state.disabled}
+        disabled={state.disabled || loading}
       />
       {error ? <small style={{ color: "crimson" }}>{error}</small> : null}
     </div>
