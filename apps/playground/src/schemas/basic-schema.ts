@@ -28,6 +28,15 @@ export const basicSchema: FormDefinition = {
         valueType: "array",
         itemType: "string",
       },
+      addresses: {
+        valueType: "array",
+        itemType: "object",
+        itemSchema: {
+          street: { valueType: "string", default: "" },
+          city: { valueType: "string", default: "" },
+          zip: { valueType: "string", default: "" },
+        },
+      },
     },
   },
   uiSchema: {
@@ -54,6 +63,18 @@ export const basicSchema: FormDefinition = {
         fieldType: "array",
         label: "Tags",
       },
+      addresses: {
+        fieldType: "array",
+        label: "Addresses",
+        componentProps: {
+          itemLayout: ["street", "city", "zip"],
+          itemFields: {
+            street: { label: "Street", placeholder: "123 Main St" },
+            city: { label: "City", placeholder: "San Francisco" },
+            zip: { label: "ZIP", placeholder: "94107", inputType: "text" },
+          },
+        },
+      },
     },
     layout: {
       type: "stack",
@@ -63,6 +84,7 @@ export const basicSchema: FormDefinition = {
         { type: "field", ref: "company.name" },
         { type: "field", ref: "contact.email" },
         { type: "field", ref: "tags" },
+        { type: "field", ref: "addresses" },
       ],
     },
   },

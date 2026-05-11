@@ -13,6 +13,15 @@ const playgroundValidationSchema = z
       email: z.string().email("Enter a valid email address"),
     }),
     tags: z.array(z.string()).optional(),
+    addresses: z
+      .array(
+        z.object({
+          street: z.string().optional(),
+          city: z.string().optional(),
+          zip: z.string().optional(),
+        }),
+      )
+      .optional(),
   })
   .superRefine((values, ctx) => {
     if (values.accountType === "company" && !values.company?.name) {
