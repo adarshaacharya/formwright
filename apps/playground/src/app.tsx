@@ -7,6 +7,7 @@ import { playgroundValidationResolver } from "./demo/validation";
 
 export function App(): React.JSX.Element {
   const [mode, setMode] = useState<"create" | "view">("create");
+  const [hiddenFieldPolicy, setHiddenFieldPolicy] = useState<"keep" | "clear" | "unregister">("keep");
   const runtime = useMemo(
     () =>
       createFormRuntime({
@@ -18,7 +19,11 @@ export function App(): React.JSX.Element {
   );
 
   return (
-    <FormRuntimeProvider runtime={runtime} validationResolver={playgroundValidationResolver}>
+    <FormRuntimeProvider
+      runtime={runtime}
+      validationResolver={playgroundValidationResolver}
+      hiddenFieldPolicy={hiddenFieldPolicy}
+    >
       <div style={{ maxWidth: 520, margin: "40px auto", display: "grid", gap: 20 }}>
         <h1>Formwright Playground</h1>
         <p>Change account type to see rule-based show/hide behavior.</p>
@@ -29,6 +34,22 @@ export function App(): React.JSX.Element {
           </button>
           <button type="button" onClick={() => setMode("view")} disabled={mode === "view"}>
             view
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <strong>Hidden policy:</strong>
+          <button type="button" onClick={() => setHiddenFieldPolicy("keep")} disabled={hiddenFieldPolicy === "keep"}>
+            keep
+          </button>
+          <button type="button" onClick={() => setHiddenFieldPolicy("clear")} disabled={hiddenFieldPolicy === "clear"}>
+            clear
+          </button>
+          <button
+            type="button"
+            onClick={() => setHiddenFieldPolicy("unregister")}
+            disabled={hiddenFieldPolicy === "unregister"}
+          >
+            unregister
           </button>
         </div>
         <FormRuntimeRoot rootLayoutId="root-stack" />

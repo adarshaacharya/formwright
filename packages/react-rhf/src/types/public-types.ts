@@ -19,12 +19,27 @@ export interface FormRuntimeProviderProps {
   runtime: FormRuntime;
   initialValues?: Record<string, unknown>;
   validationResolver?: Resolver<Record<string, unknown>>;
+  hiddenFieldPolicy?: "keep" | "unregister" | "clear";
   children?: React.ReactNode;
 }
 
 export interface FormRuntimeRootProps {
   rootLayoutId?: string;
+  fieldRendererMap?: Record<string, FieldRendererComponent>;
+  layoutRendererMap?: Record<string, LayoutRendererComponent>;
 }
+
+export interface FieldRendererBaseProps {
+  path: string;
+}
+
+export interface LayoutRendererBaseProps {
+  layout: ResolvedLayoutModel;
+  children?: React.ReactNode;
+}
+
+export type FieldRendererComponent = (props: FieldRendererBaseProps) => React.JSX.Element | null;
+export type LayoutRendererComponent = (props: LayoutRendererBaseProps) => React.JSX.Element | null;
 
 export interface UseFormFieldResult {
   field: ResolvedFieldModel;

@@ -7,6 +7,7 @@ export interface RuntimeAdapterContextValue {
   runtime: FormRuntime;
   form: UseFormReturn<Record<string, unknown>>;
   evaluation: RuntimeEvaluationResult;
+  hiddenFieldPolicy: "keep" | "unregister" | "clear";
 }
 
 const runtimeContext = createContext<RuntimeAdapterContextValue | null>(null);

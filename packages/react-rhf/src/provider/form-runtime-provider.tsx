@@ -8,6 +8,7 @@ export function FormRuntimeProvider({
   runtime,
   initialValues,
   validationResolver,
+  hiddenFieldPolicy = "keep",
   children,
 }: FormRuntimeProviderProps): React.JSX.Element {
   const evaluationValues = runtime.evaluate().values;
@@ -25,7 +26,7 @@ export function FormRuntimeProvider({
   const evaluation = useMemo(() => runtime.evaluate(values), [runtime, values]);
 
   return (
-    <RuntimeContextProvider value={{ runtime, form, evaluation }}>
+    <RuntimeContextProvider value={{ runtime, form, evaluation, hiddenFieldPolicy }}>
       <FormProvider {...form}>{children}</FormProvider>
     </RuntimeContextProvider>
   );

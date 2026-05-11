@@ -1,6 +1,10 @@
 import type { FieldPath } from "@formwright/contract";
 import type { ResolvedLayoutModel } from "@formwright/core";
-import type { FormRuntimeRootProps } from "../types/public-types";
+import type {
+  FieldRendererComponent,
+  FormRuntimeRootProps,
+  LayoutRendererComponent,
+} from "../types/public-types";
 import { useFormField } from "../hooks/use-form-field";
 import { useFormLayout } from "../hooks/use-form-layout";
 
@@ -46,27 +50,47 @@ function DefaultField({ path }: { path: FieldPath }): React.JSX.Element | null {
   );
 }
 
-function renderNode(node: ResolvedLayoutModel, key: string): React.JSX.Element | null {
+function DefaultLayout({ children }: { children?: React.ReactNode }): React.JSX.Element {
+  return <div style={{ display: "grid", gap: 16 }}>{children}</div>;
+}
+
+const FallbackLayoutRenderer: LayoutRendererComponent = ({ children }) => (
+  <DefaultLayout>{children}</DefaultLayout>
+);
+
+function renderNode(
+  node: ResolvedLayoutModel,
+  key: string,
+  fieldRendererMap: Record<string, FieldRendererComponent>,
+  layoutRendererMap: Record<string, LayoutRendererComponent>,
+): React.JSX.Element | null {
   if (node.type === "field" && node.fieldRef) {
-    return <DefaultField key={key} path={node.fieldRef} />;
+    const FieldRenderer = fieldRendererMap[node.rendererKey] ?? fieldRendererMap[node.type] ?? DefaultField;
+    return <FieldRenderer key={key} path={node.fieldRef} />;
   }
 
-  if (node.type === "stack" || node.type === "grid" || node.type === "section") {
-    return (
-      <div key={key} style={{ display: "grid", gap: 16 }}>
-        {(node.children ?? []).map((child, index) => renderNode(child, `${key}-${index}`))}
-      </div>
-    );
-  }
+  const LayoutRenderer =
+    layoutRendererMap[node.rendererKey] ?? layoutRendererMap[node.type] ?? FallbackLayoutRenderer;
+  const children = (node.children ?? []).map((child, index) =>
+    renderNode(child, `${key}-${index}`, fieldRendererMap, layoutRendererMap),
+  );
 
   return (
-    <div key={key} style={{ display: "grid", gap: 16 }}>
-      {(node.children ?? []).map((child, index) => renderNode(child, `${key}-${index}`))}
-    </div>
+    <LayoutRenderer key={key} layout={node}>
+      {children}
+    </LayoutRenderer>
   );
 }
 
-export function FormRuntimeRoot({ rootLayoutId }: FormRuntimeRootProps): React.JSX.Element {
+export function FormRuntimeRoot({
+  rootLayoutId,
+  fieldRendererMap = {},
+  layoutRendererMap = {},
+}: FormRuntimeRootProps): React.JSX.Element {
   const { layout } = useFormLayout(rootLayoutId);
-  return <div data-formwright-layout={layout.type}>{renderNode(layout, rootLayoutId ?? "root")}</div>;
+  return (
+    <div data-formwright-layout={layout.type}>
+      {renderNode(layout, rootLayoutId ?? "root", fieldRendererMap, layoutRendererMap)}
+    </div>
+  );
 }
