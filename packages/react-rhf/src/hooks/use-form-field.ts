@@ -1,7 +1,9 @@
+import { useEffect, useMemo } from "react";
 import type { FieldPath } from "@formwright/contract";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 import type { UseFormFieldResult } from "../types/public-types";
+import { toRHFValidationRules } from "../validation/to-rhf-validation-rules";
 import { useFormRuntime } from "./use-form-runtime";
 
 export function useFormField(path: FieldPath): UseFormFieldResult {
@@ -23,6 +25,17 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
     readonly: false,
     required: false,
   };
+  const validationRules = useMemo(
+    () => toRHFValidationRules(field.dataField, state.required),
+    [field.dataField, state.required],
+  );
+
+  useEffect(() => {
+    form.register(path, validationRules);
+    return () => {
+      form.unregister(path);
+    };
+  }, [form, path, validationRules]);
 
   return {
     field,

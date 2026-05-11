@@ -3,6 +3,7 @@ import { createFormRuntime } from "@formwright/core";
 import { registerBasicPlugins } from "@formwright/plugins-basic";
 import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
 import { basicSchema } from "./schemas/basic-schema";
+import { playgroundValidationResolver } from "./demo/validation";
 
 export function App(): React.JSX.Element {
   const [mode, setMode] = useState<"create" | "view">("create");
@@ -17,7 +18,7 @@ export function App(): React.JSX.Element {
   );
 
   return (
-    <FormRuntimeProvider runtime={runtime}>
+    <FormRuntimeProvider runtime={runtime} validationResolver={playgroundValidationResolver}>
       <div style={{ maxWidth: 520, margin: "40px auto", display: "grid", gap: 20 }}>
         <h1>Formwright Playground</h1>
         <p>Change account type to see rule-based show/hide behavior.</p>

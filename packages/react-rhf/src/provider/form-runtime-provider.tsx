@@ -7,6 +7,7 @@ import { RuntimeContextProvider } from "./runtime-context";
 export function FormRuntimeProvider({
   runtime,
   initialValues,
+  validationResolver,
   children,
 }: FormRuntimeProviderProps): React.JSX.Element {
   const evaluationValues = runtime.evaluate().values;
@@ -18,6 +19,7 @@ export function FormRuntimeProvider({
   const form = useForm<Record<string, unknown>>({
     defaultValues,
     mode: "onChange",
+    resolver: validationResolver,
   });
   const values = useWatch({ control: form.control }) as Record<string, unknown>;
   const evaluation = useMemo(() => runtime.evaluate(values), [runtime, values]);

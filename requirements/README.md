@@ -33,6 +33,7 @@ Documents:
 - [21-public-api-boundaries.md](/Users/adarsha/Coding/personal/form-builder/requirements/21-public-api-boundaries.md)
 - [22-plugin-interfaces-and-runtime-contract.md](/Users/adarsha/Coding/personal/form-builder/requirements/22-plugin-interfaces-and-runtime-contract.md)
 - [23-frontend-composition-pattern.md](/Users/adarsha/Coding/personal/form-builder/requirements/23-frontend-composition-pattern.md)
+- [24-validation-library-adapters.md](/Users/adarsha/Coding/personal/form-builder/requirements/24-validation-library-adapters.md)
 
 Suggested reading order:
 
@@ -57,3 +58,4 @@ Suggested reading order:
 21. public API boundaries
 22. plugin interfaces and runtime contract
 23. frontend composition pattern
+24. validation library adapters

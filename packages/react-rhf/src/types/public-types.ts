@@ -9,6 +9,7 @@ import type {
   ResolvedFieldModel,
   ResolvedLayoutModel,
 } from "@formwright/core";
+import type { Resolver } from "react-hook-form";
 
 export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {
   initialValues?: Record<string, unknown>;
@@ -17,6 +18,7 @@ export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {
 export interface FormRuntimeProviderProps {
   runtime: FormRuntime;
   initialValues?: Record<string, unknown>;
+  validationResolver?: Resolver<Record<string, unknown>>;
   children?: React.ReactNode;
 }
 
