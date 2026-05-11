@@ -103,42 +103,49 @@ function collectLayoutState(
   }
 }
 
-function evalExpr(expr: RuleExpression, values: Record<string, unknown>): unknown {
+function evalExpr(
+  expr: RuleExpression,
+  values: Record<string, unknown>,
+  context: Record<string, unknown>,
+): unknown {
   if ("var" in expr) {
+    if (expr.var.startsWith("$")) {
+      return context[expr.var.slice(1)];
+    }
     return values[expr.var];
   }
   if ("eq" in expr) {
-    return evalExpr(expr.eq[0], values) === expr.eq[1];
+    return evalExpr(expr.eq[0], values, context) === expr.eq[1];
   }
   if ("neq" in expr) {
-    return evalExpr(expr.neq[0], values) !== expr.neq[1];
+    return evalExpr(expr.neq[0], values, context) !== expr.neq[1];
   }
   if ("and" in expr) {
-    return expr.and.every((node) => Boolean(evalExpr(node, values)));
+    return expr.and.every((node) => Boolean(evalExpr(node, values, context)));
   }
   if ("or" in expr) {
-    return expr.or.some((node) => Boolean(evalExpr(node, values)));
+    return expr.or.some((node) => Boolean(evalExpr(node, values, context)));
   }
   if ("not" in expr) {
-    return !Boolean(evalExpr(expr.not, values));
+    return !Boolean(evalExpr(expr.not, values, context));
   }
   if ("exists" in expr) {
     return values[expr.exists] !== undefined && values[expr.exists] !== null;
   }
   if ("gt" in expr) {
-    return Number(evalExpr(expr.gt[0], values)) > expr.gt[1];
+    return Number(evalExpr(expr.gt[0], values, context)) > expr.gt[1];
   }
   if ("gte" in expr) {
-    return Number(evalExpr(expr.gte[0], values)) >= expr.gte[1];
+    return Number(evalExpr(expr.gte[0], values, context)) >= expr.gte[1];
   }
   if ("lt" in expr) {
-    return Number(evalExpr(expr.lt[0], values)) < expr.lt[1];
+    return Number(evalExpr(expr.lt[0], values, context)) < expr.lt[1];
   }
   if ("lte" in expr) {
-    return Number(evalExpr(expr.lte[0], values)) <= expr.lte[1];
+    return Number(evalExpr(expr.lte[0], values, context)) <= expr.lte[1];
   }
   if ("in" in expr) {
-    return expr.in[1].includes(evalExpr(expr.in[0], values));
+    return expr.in[1].includes(evalExpr(expr.in[0], values, context));
   }
   return false;
 }
@@ -154,34 +161,61 @@ function applyBuiltInEffect(
   layoutState: Record<string, DerivedLayoutState>,
   values: Record<string, unknown>,
 ): void {
-  if (effect.type === "show" && fieldState[effect.target]) {
-    fieldState[effect.target].visible = true;
+  const isWildcardTarget = effect.target === "*";
+  const targetFieldPaths = isWildcardTarget ? Object.keys(fieldState) : [effect.target];
+  const targetLayoutIds = isWildcardTarget ? Object.keys(layoutState) : [effect.target];
+
+  if (effect.type === "show") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldState[path].visible = true;
+    }
   }
-  if (effect.type === "hide" && fieldState[effect.target]) {
-    fieldState[effect.target].visible = false;
+  if (effect.type === "hide") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldState[path].visible = false;
+    }
   }
-  if (effect.type === "enable" && fieldState[effect.target]) {
-    fieldState[effect.target].disabled = false;
+  if (effect.type === "enable") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldState[path].disabled = false;
+    }
   }
-  if (effect.type === "disable" && fieldState[effect.target]) {
-    fieldState[effect.target].disabled = true;
+  if (effect.type === "disable") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldState[path].disabled = true;
+    }
   }
-  if (effect.type === "require" && fieldState[effect.target]) {
-    fieldState[effect.target].required = effect.value ?? true;
+  if (effect.type === "require") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldState[path].required = effect.value ?? true;
+    }
   }
   if (effect.type === "setValue") {
     values[effect.target] = effect.value;
   }
   if (effect.type === "clearValue") {
-    values[effect.target] = undefined;
+    if (isWildcardTarget) {
+      for (const key of Object.keys(values)) values[key] = undefined;
+    } else {
+      values[effect.target] = undefined;
+    }
   }
-  if (effect.type === "setLayoutProp" && layoutState[effect.target] && effect.prop === "visible") {
-    layoutState[effect.target].visible = Boolean(effect.value);
+  if (effect.type === "setLayoutProp" && effect.prop === "visible") {
+    for (const id of targetLayoutIds) {
+      if (layoutState[id]) layoutState[id].visible = Boolean(effect.value);
+    }
   }
 }
 
 export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
   const form = input.form;
+  const runtimeContext = {
+    mode: input.context?.mode ?? form.meta?.mode,
+    userRole: input.context?.userRole,
+    locale: input.context?.locale ?? form.meta?.locale,
+    featureFlags: input.context?.featureFlags,
+    meta: input.context?.meta,
+  };
   const resolvedFields = toResolvedFields(form);
   const resolvedLayout = toResolvedLayout(form.uiSchema.layout);
   const pluginRegistry = createPluginRegistry();
@@ -211,10 +245,10 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
               operator.evaluate({
                 expression: rule.when as unknown as OperatorEvaluateInput["expression"],
                 values,
-                context: input.context ?? {},
+                context: runtimeContext,
               }),
             )
-          : Boolean(evalExpr(rule.when, values));
+          : Boolean(evalExpr(rule.when, values, runtimeContext as Record<string, unknown>));
         if (!matched) continue;
 
         for (const effect of rule.effects) {
@@ -224,23 +258,35 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
               effect,
               values,
               derivedState: { fields: fieldState, layouts: layoutState },
-              context: input.context ?? {},
+              context: runtimeContext,
             });
 
             for (const mutation of pluginResult.fieldMutations ?? []) {
-              if (fieldState[mutation.path]) {
+              if (mutation.path === "*") {
+                for (const path of Object.keys(fieldState)) {
+                  fieldState[path] = { ...fieldState[path], ...mutation.patch };
+                }
+              } else if (fieldState[mutation.path]) {
                 fieldState[mutation.path] = { ...fieldState[mutation.path], ...mutation.patch };
               }
             }
 
             for (const mutation of pluginResult.layoutMutations ?? []) {
-              if (layoutState[mutation.id]) {
+              if (mutation.id === "*") {
+                for (const id of Object.keys(layoutState)) {
+                  layoutState[id] = { ...layoutState[id], ...mutation.patch };
+                }
+              } else if (layoutState[mutation.id]) {
                 layoutState[mutation.id] = { ...layoutState[mutation.id], ...mutation.patch };
               }
             }
 
             for (const mutation of pluginResult.valueMutations ?? []) {
-              values[mutation.path] = mutation.value;
+              if (mutation.path === "*") {
+                for (const key of Object.keys(values)) values[key] = mutation.value;
+              } else {
+                values[mutation.path] = mutation.value;
+              }
             }
             continue;
           }

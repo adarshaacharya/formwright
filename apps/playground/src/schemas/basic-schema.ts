@@ -73,6 +73,13 @@ export const basicSchema: FormDefinition = {
         },
         effects: [{ type: "hide", target: "company.name" }],
       },
+      {
+        id: "global-lock-in-view-mode",
+        when: {
+          eq: [{ var: "$mode" }, "view"],
+        },
+        effects: [{ type: "disable", target: "*" }],
+      },
     ],
   },
 };
