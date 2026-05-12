@@ -17,10 +17,7 @@ import type {
 } from "../../types/public-types";
 import { DefaultArrayField } from "./default-array-field";
 import { DefaultField } from "./default-field";
-
-function DefaultLayout({ children }: RenderLayoutProps): React.JSX.Element {
-  return <div style={{ display: "grid", gap: 16 }}>{children}</div>;
-}
+import { DefaultLayout } from "./default-layout";
 
 const FallbackLayoutRenderer: LayoutRendererComponent = (props) => <DefaultLayout {...props} />;
 

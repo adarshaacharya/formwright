@@ -5,5 +5,6 @@ import { basicSchema } from "../schemas/basic-schema";
 
 export const demoRuntime = createFormRuntime({
   form: basicSchema,
+  context: { baseUrl: typeof window !== "undefined" ? window.location.origin : undefined },
   plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
 });

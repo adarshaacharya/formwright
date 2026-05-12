@@ -244,7 +244,7 @@ describe("@formwright/react-rhf adapter", () => {
     vi.useFakeTimers();
     const runtime = createFormRuntime({
       form: makeRemoteDatasourceForm(),
-      context: { mode: "create" },
+      context: { mode: "create", baseUrl: "http://localhost" },
       plugins: [createDelayedDatasourcePlugin()],
     });
 

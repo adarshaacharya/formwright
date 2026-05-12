@@ -23,3 +23,12 @@ export { useFormArray } from "./hooks/use-form-array";
 export { useFormLayout } from "./hooks/use-form-layout";
 export { useDatasourceOptions } from "./hooks/use-datasource-options";
 export { toRHFValidationRules } from "./validation/to-rhf-validation-rules";
+export {
+  DefaultField,
+  DefaultFieldRenderer,
+  DefaultArrayField,
+  DefaultArrayFieldRenderer,
+  DefaultLayout,
+  DefaultLayoutRenderer,
+  createDefaultRendererMaps,
+} from "./components/internal/default-export";

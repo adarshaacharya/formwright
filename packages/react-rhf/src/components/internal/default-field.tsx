@@ -50,3 +50,7 @@ export function DefaultField({
     </div>
   );
 }
+
+export function DefaultFieldRenderer(props: RenderFieldProps): React.JSX.Element | null {
+  return <DefaultField {...props} />;
+}

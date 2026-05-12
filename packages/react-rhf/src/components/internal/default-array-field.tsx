@@ -149,3 +149,7 @@ export function DefaultArrayField({
     </div>
   );
 }
+
+export function DefaultArrayFieldRenderer(props: RenderArrayProps): React.JSX.Element | null {
+  return <DefaultArrayField {...props} />;
+}

@@ -20,7 +20,19 @@ function buildRequest(
     query.set(key, String(resolved));
   }
 
-  const url = new URL(source.endpoint, "http://localhost");
+  const baseUrl = input.context.baseUrl;
+  const url = source.endpoint.startsWith("http://") || source.endpoint.startsWith("https://")
+    ? new URL(source.endpoint)
+    : baseUrl
+      ? new URL(source.endpoint, baseUrl)
+      : null;
+
+  if (!url) {
+    throw new Error(
+      `Remote datasource endpoint "${source.endpoint}" is relative but no baseUrl was provided in runtime context.`,
+    );
+  }
+
   for (const [key, value] of query.entries()) {
     url.searchParams.set(key, value);
   }

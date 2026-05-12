@@ -14,7 +14,7 @@ export function App(): React.JSX.Element {
     () =>
       createFormRuntime({
         form: basicSchema,
-        context: { mode },
+        context: { mode, baseUrl: typeof window !== "undefined" ? window.location.origin : undefined },
         plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
       }),
     [mode],

@@ -18,6 +18,7 @@ export interface RuntimeContext {
   mode?: "create" | "edit" | "view";
   userRole?: string;
   locale?: string;
+  baseUrl?: string;
   featureFlags?: Record<string, boolean | string | number>;
   meta?: Record<string, unknown>;
 }
