@@ -340,6 +340,12 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
     getEvaluationDependencies() {
       return evaluationDependencies;
     },
+    getRuntimeContext() {
+      return runtimeContext;
+    },
+    getPluginRegistry() {
+      return pluginRegistry;
+    },
     evaluate(runtimeValues): RuntimeEvaluationResult {
       const layoutState: Record<string, DerivedLayoutState> = {};
       collectLayoutState(form.uiSchema.layout, layoutState);

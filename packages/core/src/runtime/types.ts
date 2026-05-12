@@ -12,6 +12,7 @@ import type {
 
 import type { ValidationPlanItem, ValidationResult } from "../validation/types";
 import type { DerivedStateSnapshot, ResolvedFieldModel, ResolvedLayoutModel } from "../resolved/types";
+import type { PluginRegistry } from "../plugins/types";
 
 export interface RuntimeContext {
   mode?: "create" | "edit" | "view";
@@ -185,6 +186,8 @@ export interface FormRuntime {
   getResolvedFields(): Record<FieldPath, ResolvedFieldModel>;
   getResolvedLayout(): ResolvedLayoutModel;
   getEvaluationDependencies(): FieldPath[];
+  getRuntimeContext(): RuntimeContext;
+  getPluginRegistry(): PluginRegistry;
   evaluate(values?: Record<string, unknown>): RuntimeEvaluationResult;
 }
 

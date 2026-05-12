@@ -6,15 +6,18 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "echo \"TODO: build @formwright/plugins-async\"",
-    "dev": "echo \"TODO: dev @formwright/plugins-async\"",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
     "lint": "echo \"TODO: lint @formwright/plugins-async\"",
     "test": "echo \"TODO: test @formwright/plugins-async\"",
-    "typecheck": "echo \"TODO: typecheck @formwright/plugins-async\"",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist build coverage"
   },
   "dependencies": {
     "@formwright/contract": "workspace:*",
     "@formwright/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

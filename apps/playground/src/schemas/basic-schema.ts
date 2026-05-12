@@ -54,6 +54,11 @@ export const basicSchema: FormDefinition = {
         label: "Company Name",
         placeholder: "Enter company name",
       },
+      country: {
+        fieldType: "select",
+        label: "Country",
+        dataSource: "countries",
+      },
       "contact.email": {
         fieldType: "text",
         label: "Contact Email",
@@ -82,6 +87,7 @@ export const basicSchema: FormDefinition = {
       children: [
         { type: "field", ref: "accountType" },
         { type: "field", ref: "company.name" },
+        { type: "field", ref: "country" },
         { type: "field", ref: "contact.email" },
         { type: "field", ref: "tags" },
         { type: "field", ref: "addresses" },
@@ -89,6 +95,16 @@ export const basicSchema: FormDefinition = {
     },
   },
   behaviorSchema: {
+    dataSources: {
+      countries: {
+        type: "static",
+        options: [
+          { label: "United States", value: "US" },
+          { label: "Nepal", value: "NP" },
+          { label: "Germany", value: "DE" },
+        ],
+      },
+    },
     rules: [
       {
         id: "show-company-name-when-company",

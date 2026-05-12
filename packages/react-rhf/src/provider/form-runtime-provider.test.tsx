@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { FormDefinition } from "@formwright/contract";
-import { createFormRuntime } from "@formwright/core";
+import { createFormRuntime, type FormPlugin } from "@formwright/core";
 import { FormRuntimeProvider } from "./form-runtime-provider";
 import { FormRuntimeRoot } from "../components/form-runtime-root";
 import { useRuntimeContext } from "./runtime-context";
@@ -99,6 +99,60 @@ function renderForm(hiddenFieldPolicy: "keep" | "clear" | "unregister") {
   );
 }
 
+function makeRemoteDatasourceForm(): FormDefinition {
+  return makeForm({
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        country: {
+          valueType: "string",
+          default: "",
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        country: {
+          fieldType: "select",
+          label: "Country",
+          dataSource: "countries",
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "remote-root",
+        children: [{ type: "field", ref: "country" }],
+      },
+    },
+    behaviorSchema: {
+      dataSources: {
+        countries: {
+          type: "remote",
+          endpoint: "/api/countries",
+          dependsOn: [],
+        },
+      },
+    },
+  });
+}
+
+function createDelayedDatasourcePlugin(): FormPlugin {
+  return {
+    kind: "datasource",
+    identity: { name: "@formwright/test/remote-datasource", version: "0.0.0" },
+    sourceType: "remote",
+    async load() {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return {
+        options: [
+          { label: "Canada", value: "CA" },
+          { label: "Japan", value: "JP" },
+        ],
+      };
+    },
+  };
+}
+
 function changeTextInput(element: HTMLElement, value: string): void {
   fireEvent.change(element, { target: { value } as any });
 }
@@ -180,5 +234,25 @@ describe("@formwright/react-rhf adapter", () => {
     const initialCalls = evaluate.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "set unrelated" }));
     await waitFor(() => expect(evaluate.mock.calls.length).toBe(initialCalls));
+  });
+
+  it("shows loading and then remote datasource options", async () => {
+    const runtime = createFormRuntime({
+      form: makeRemoteDatasourceForm(),
+      context: { mode: "create" },
+      plugins: [createDelayedDatasourcePlugin()],
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="remote-root" />
+      </FormRuntimeProvider>,
+    );
+
+    expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText("Loading options...")).toBeTruthy();
+
+    await waitFor(() => expect(screen.queryByRole("option", { name: "Canada" })).not.toBeNull());
+    expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("false");
   });
 });

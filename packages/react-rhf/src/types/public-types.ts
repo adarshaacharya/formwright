@@ -91,6 +91,7 @@ export interface UseFormArrayResult {
 
 export interface UseDatasourceOptionsResult {
   loading: boolean;
+  error?: string;
   options: DataSourceLoadResult["options"];
 }
 

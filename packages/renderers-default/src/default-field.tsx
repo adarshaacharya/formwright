@@ -15,18 +15,20 @@ export function DefaultField({
       <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
         <label>{label}</label>
         <select
+          aria-busy={loading ? "true" : "false"}
           value={(value as string | undefined) ?? ""}
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
           disabled={state.disabled || loading}
         >
-          <option value="">Select an option</option>
+          {loading ? <option value="">Loading options...</option> : <option value="">Select an option</option>}
           {(field.uiField?.options ?? []).map((option) => (
             <option key={`${field.path}-${String(option.value)}`} value={String(option.value)} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
         </select>
+        {loading ? <small>Loading options…</small> : null}
         {error ? <small style={{ color: "crimson" }}>{error}</small> : null}
       </div>
     );

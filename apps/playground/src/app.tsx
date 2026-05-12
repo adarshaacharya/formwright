@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFormRuntime } from "@formwright/core";
+import { registerAsyncPlugins } from "@formwright/plugins-async";
 import { registerBasicPlugins } from "@formwright/plugins-basic";
 import { createDefaultRendererMaps } from "@formwright/renderers-default";
 import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
@@ -14,7 +15,7 @@ export function App(): React.JSX.Element {
       createFormRuntime({
         form: basicSchema,
         context: { mode },
-        plugins: registerBasicPlugins(),
+        plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
       }),
     [mode],
   );
