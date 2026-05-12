@@ -72,7 +72,7 @@ function ScalarFieldNode({
   fieldRendererMap: Record<string, FieldRendererComponent>;
 }): React.JSX.Element | null {
   const { field: runtimeField, state, value, error, setValue, onBlur } = useFormField(path);
-  const { loading, options } = useDatasourceOptions(path);
+  const { loading, options, error: datasourceError } = useDatasourceOptions(path);
   const Renderer =
     fieldRendererMap[runtimeField.rendererKey] ?? fieldRendererMap[runtimeField.fieldType] ?? DefaultField;
 
@@ -81,7 +81,7 @@ function ScalarFieldNode({
     field: runtimeField,
     state,
     value,
-    error,
+    error: error ?? datasourceError,
     onChange: setValue,
     onBlur,
     loading,

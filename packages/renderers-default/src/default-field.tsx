@@ -8,9 +8,11 @@ export function DefaultField({
   onChange,
   onBlur,
   loading,
+  options,
 }: RenderFieldProps): React.JSX.Element | null {
   const label = field.uiField?.label ?? field.path;
   if (field.fieldType === "select") {
+    const selectOptions = options ?? field.uiField?.options ?? [];
     return (
       <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
         <label>{label}</label>
@@ -22,7 +24,7 @@ export function DefaultField({
           disabled={state.disabled || loading}
         >
           {loading ? <option value="">Loading options...</option> : <option value="">Select an option</option>}
-          {(field.uiField?.options ?? []).map((option) => (
+          {selectOptions.map((option) => (
             <option key={`${field.path}-${String(option.value)}`} value={String(option.value)} disabled={option.disabled}>
               {option.label}
             </option>

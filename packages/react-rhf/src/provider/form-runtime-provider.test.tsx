@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act } from "react";
 import type { FormDefinition } from "@formwright/contract";
 import { createFormRuntime, type FormPlugin } from "@formwright/core";
 import { FormRuntimeProvider } from "./form-runtime-provider";
@@ -8,7 +9,10 @@ import { FormRuntimeRoot } from "../components/form-runtime-root";
 import { useRuntimeContext } from "./runtime-context";
 import { useFormContext } from "react-hook-form";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function makeForm(overrides?: Partial<FormDefinition>): FormDefinition {
   return {
@@ -142,7 +146,7 @@ function createDelayedDatasourcePlugin(): FormPlugin {
     identity: { name: "@formwright/test/remote-datasource", version: "0.0.0" },
     sourceType: "remote",
     async load() {
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       return {
         options: [
           { label: "Canada", value: "CA" },
@@ -237,6 +241,7 @@ describe("@formwright/react-rhf adapter", () => {
   });
 
   it("shows loading and then remote datasource options", async () => {
+    vi.useFakeTimers();
     const runtime = createFormRuntime({
       form: makeRemoteDatasourceForm(),
       context: { mode: "create" },
@@ -249,10 +254,18 @@ describe("@formwright/react-rhf adapter", () => {
       </FormRuntimeProvider>,
     );
 
-    expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("true");
-    expect(screen.getByText("Loading options...")).toBeTruthy();
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+    });
 
-    await waitFor(() => expect(screen.queryByRole("option", { name: "Canada" })).not.toBeNull());
+    expect(screen.getAllByText(/Loading options/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      vi.advanceTimersByTime(60);
+    });
+
+    expect(screen.queryByRole("option", { name: "Canada" })).not.toBeNull();
     expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("false");
   });
 });

@@ -30,7 +30,7 @@ export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResul
   }, [evaluation.values, source]);
   const dependsOnSignature = useMemo(() => JSON.stringify(dependsOnValues), [dependsOnValues]);
   const [remoteOptions, setRemoteOptions] = useState<SelectOption[] | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(source && source.type === "remote"));
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
