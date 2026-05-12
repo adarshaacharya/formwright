@@ -20,7 +20,7 @@ function buildRequest(
     query.set(key, String(resolved));
   }
 
-  const baseUrl = input.context.baseUrl;
+  const baseUrl = input.context.baseUrl ?? (typeof window !== "undefined" ? window.location.origin : undefined);
   const url = source.endpoint.startsWith("http://") || source.endpoint.startsWith("https://")
     ? new URL(source.endpoint)
     : baseUrl
@@ -29,7 +29,7 @@ function buildRequest(
 
   if (!url) {
     throw new Error(
-      `Remote datasource endpoint "${source.endpoint}" is relative but no baseUrl was provided in runtime context.`,
+      `Remote datasource endpoint "${source.endpoint}" is relative but no baseUrl or browser origin was available.`,
     );
   }
 

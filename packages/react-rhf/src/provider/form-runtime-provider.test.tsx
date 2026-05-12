@@ -140,6 +140,37 @@ function makeRemoteDatasourceForm(): FormDefinition {
   });
 }
 
+function makeNumericArrayForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "numeric-array-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        scores: {
+          valueType: "array",
+          itemType: "number",
+          default: [],
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        scores: {
+          fieldType: "array",
+          label: "Scores",
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "scores-root",
+        children: [{ type: "field", ref: "scores" }],
+      },
+    },
+    behaviorSchema: {},
+  };
+}
+
 function createDelayedDatasourcePlugin(): FormPlugin {
   return {
     kind: "datasource",
@@ -212,6 +243,23 @@ describe("@formwright/react-rhf adapter", () => {
       const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
       expect(values.tags).toEqual(["alpha"]);
     });
+  });
+
+  it("uses a numeric default when appending numeric arrays", async () => {
+    const runtime = createFormRuntime({
+      form: makeNumericArrayForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="scores-root" />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "add item" }));
+    const numberInput = screen.getByRole("spinbutton") as HTMLInputElement;
+    expect(numberInput.value).toBe("0");
   });
 
   it("does not re-evaluate when a non-dependent field changes", async () => {

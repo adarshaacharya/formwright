@@ -4,8 +4,10 @@ import { registerAsyncPlugins } from "@formwright/plugins-async";
 import { registerBasicPlugins } from "@formwright/plugins-basic";
 import { createDefaultRendererMaps } from "@formwright/renderers-default";
 import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
+import type { FieldRendererSlots } from "@formwright/react-rhf";
 import { basicSchema } from "./schemas/basic-schema";
 import { playgroundValidationResolver } from "./demo/validation";
+import { CountrySelectRenderer } from "./components/country-select-renderer";
 
 export function App(): React.JSX.Element {
   const [mode, setMode] = useState<"create" | "view">("create");
@@ -20,6 +22,37 @@ export function App(): React.JSX.Element {
     [mode],
   );
   const rendererMaps = useMemo(() => createDefaultRendererMaps(), []);
+  const fieldRendererMap = useMemo(
+    () => ({
+      ...rendererMaps.fieldRendererMap,
+      "country-select": CountrySelectRenderer,
+    }),
+    [rendererMaps],
+  );
+  const fieldSlots = useMemo(
+    (): FieldRendererSlots => ({
+      Control: ({ field, value, state, onChange, onBlur, loading, defaultControl }) => {
+        if (field.path !== "contact.email") {
+          return <>{defaultControl}</>;
+        }
+
+        return (
+          <div style={{ display: "grid", gap: 4, border: "1px solid #8b5cf6", padding: 8, borderRadius: 8 }}>
+            <small style={{ color: "#6b21a8" }}>custom slot control</small>
+            <input
+              type="email"
+              value={(value as string | undefined) ?? ""}
+              onChange={(event) => onChange(event.target.value)}
+              onBlur={onBlur}
+              disabled={state.disabled || loading}
+              placeholder="custom email input"
+            />
+          </div>
+        );
+      },
+    }),
+    [],
+  );
 
   return (
     <FormRuntimeProvider
@@ -57,9 +90,10 @@ export function App(): React.JSX.Element {
         </div>
         <FormRuntimeRoot
           rootLayoutId="root-stack"
-          fieldRendererMap={rendererMaps.fieldRendererMap}
+          fieldRendererMap={fieldRendererMap}
           arrayFieldRendererMap={rendererMaps.arrayFieldRendererMap}
           layoutRendererMap={rendererMaps.layoutRendererMap}
+          fieldSlots={fieldSlots}
         />
       </div>
     </FormRuntimeProvider>

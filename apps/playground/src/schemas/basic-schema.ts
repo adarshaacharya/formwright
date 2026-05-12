@@ -56,6 +56,7 @@ export const basicSchema: FormDefinition = {
       },
       country: {
         fieldType: "select",
+        renderer: "country-select",
         label: "Country",
         dataSource: "countries",
       },

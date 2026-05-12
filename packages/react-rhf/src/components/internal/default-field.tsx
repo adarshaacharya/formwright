@@ -1,4 +1,153 @@
-import type { RenderFieldProps } from "../../types/public-types";
+import type {
+  RenderFieldProps,
+} from "../../types/public-types";
+import { FieldComposer } from "../field-composer";
+
+function buildDefaultControl(
+  field: RenderFieldProps["field"],
+  state: RenderFieldProps["state"],
+  value: unknown,
+  error: string | undefined,
+  onChange: RenderFieldProps["onChange"],
+  onBlur: RenderFieldProps["onBlur"],
+  loading: boolean | undefined,
+  options: RenderFieldProps["options"],
+): React.JSX.Element {
+  const widget = field.uiField?.widget;
+  const controlType = widget ?? field.fieldType;
+  const label = field.uiField?.label ?? field.path;
+
+  if (controlType === "select") {
+    const selectOptions = options ?? field.uiField?.options ?? [];
+    return (
+      <>
+        <select
+          aria-busy={loading ? "true" : "false"}
+          value={(value as string | undefined) ?? ""}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          disabled={state.disabled || loading}
+          aria-label={label}
+        >
+          {loading ? <option value="">Loading options…</option> : <option value="">Select an option</option>}
+          {selectOptions.map((option) => (
+            <option
+              key={`${field.path}-${String(option.value)}`}
+              value={String(option.value)}
+              disabled={option.disabled}
+            >
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {loading ? <small>Loading options…</small> : null}
+      </>
+    );
+  }
+
+  if (controlType === "radio-group") {
+    const radioOptions = options ?? field.uiField?.options ?? [];
+    return (
+      <fieldset style={{ display: "grid", gap: 6, border: 0, padding: 0 }}>
+        <legend>{label}</legend>
+        <div style={{ display: "grid", gap: 8 }}>
+          {radioOptions.map((option) => (
+            <label key={`${field.path}-${String(option.value)}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="radio"
+                name={field.path}
+                checked={String(value ?? "") === String(option.value)}
+                onChange={() => onChange(option.value)}
+                onBlur={onBlur}
+                disabled={state.disabled || loading || option.disabled}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (controlType === "checkbox" || field.fieldType === "boolean") {
+    return (
+      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+          onBlur={onBlur}
+          disabled={state.disabled || loading}
+        />
+        <span>{label}</span>
+      </label>
+    );
+  }
+
+  if (controlType === "textarea") {
+    return (
+      <textarea
+        value={(value as string | undefined) ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        placeholder={field.uiField?.placeholder}
+        disabled={state.disabled || loading}
+      />
+    );
+  }
+
+  if (controlType === "number" || controlType === "integer") {
+    return (
+      <input
+        type="number"
+        value={(value as string | number | undefined) ?? ""}
+        onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))}
+        onBlur={onBlur}
+        placeholder={field.uiField?.placeholder}
+        disabled={state.disabled || loading}
+      />
+    );
+  }
+
+  if (controlType === "email" || controlType === "url" || controlType === "phone" || controlType === "date" || controlType === "datetime") {
+    const inputType =
+      controlType === "datetime" ? "datetime-local" : controlType === "phone" ? "tel" : controlType;
+    return (
+      <input
+        type={inputType}
+        value={(value as string | number | undefined) ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        placeholder={field.uiField?.placeholder}
+        disabled={state.disabled || loading}
+      />
+    );
+  }
+
+  return (
+    <input
+      value={(value as string | number | undefined) ?? ""}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      placeholder={field.uiField?.placeholder}
+      disabled={state.disabled || loading}
+    />
+  );
+}
+
+function renderControl(props: RenderFieldProps): React.JSX.Element {
+  const defaultControl = buildDefaultControl(
+    props.field,
+    props.state,
+    props.value,
+    props.error,
+    props.onChange,
+    props.onBlur,
+    props.loading,
+    props.options,
+  );
+  return <>{defaultControl}</>;
+}
 
 export function DefaultField({
   field,
@@ -9,45 +158,40 @@ export function DefaultField({
   onBlur,
   loading,
   options,
+  slots,
 }: RenderFieldProps): React.JSX.Element | null {
   const label = field.uiField?.label ?? field.path;
-  if (field.fieldType === "select") {
-    const selectOptions = options ?? field.uiField?.options ?? [];
-    return (
-      <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
-        <label>{label}</label>
-        <select
-          aria-busy={loading ? "true" : "false"}
-          value={(value as string | undefined) ?? ""}
-          onChange={(event) => onChange(event.target.value)}
-          onBlur={onBlur}
-          disabled={state.disabled || loading}
-        >
-          {loading ? <option value="">Loading options…</option> : <option value="">Select an option</option>}
-          {selectOptions.map((option) => (
-            <option key={`${field.path}-${String(option.value)}`} value={String(option.value)} disabled={option.disabled}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        {loading ? <small>Loading options…</small> : null}
-        {error ? <small style={{ color: "crimson" }}>{error}</small> : null}
-      </div>
-    );
-  }
+  const description = field.uiField?.description;
+  const helpText = field.uiField?.helpText;
+  const Control = slots?.Control;
+  const defaultControl = renderControl({ field, state, value, error, onChange, onBlur, loading, options, path: field.path });
 
   return (
-    <div style={{ display: state.visible ? "grid" : "none", gap: 6 }}>
-      <label>{label}</label>
-      <input
-        value={(value as string | number | undefined) ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        placeholder={field.uiField?.placeholder}
-        disabled={state.disabled || loading}
-      />
-      {error ? <small style={{ color: "crimson" }}>{error}</small> : null}
-    </div>
+    <FieldComposer
+      field={field}
+      state={state}
+      label={label}
+      description={description}
+      helpText={helpText}
+      error={error}
+      slots={slots}
+    >
+      {Control ? (
+        <Control
+          field={field}
+          state={state}
+          value={value}
+          error={error}
+          onChange={onChange}
+          onBlur={onBlur}
+          loading={loading}
+          options={options}
+          defaultControl={defaultControl}
+        />
+      ) : (
+        defaultControl
+      )}
+    </FieldComposer>
   );
 }
 

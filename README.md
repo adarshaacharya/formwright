@@ -13,6 +13,16 @@ This repository contains the Formwright schema-driven form engine and related pa
 - `apps/playground`
 - `apps/docs-demo`
 
+## Extension Model
+
+See `apps/playground/README.md` for the renderer extension modes demonstrated in the playground:
+
+- slot override
+- composer-based custom renderer
+- full renderer replacement
+
+See `docs/architecture.md` for the package and runtime boundary overview.
+
 ## Commands
 
 - `pnpm install`

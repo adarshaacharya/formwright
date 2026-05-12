@@ -1,29 +1,64 @@
 import type { ArrayFieldDefinition, DataFieldDefinition } from "@formwright/contract";
 import { useController, useFormContext } from "react-hook-form";
 
-import type { RenderArrayProps } from "../../types/public-types";
+import type { ArrayRendererSlots, RenderArrayProps } from "../../types/public-types";
+import { ArrayComposer } from "../array-composer";
 
 function isArrayFieldDefinition(field: DataFieldDefinition): field is ArrayFieldDefinition {
   return field.valueType === "array";
 }
 
-function buildObjectDefault(itemSchema: Record<string, DataFieldDefinition> | undefined): Record<string, unknown> {
-  const next: Record<string, unknown> = {};
-  for (const [key, def] of Object.entries(itemSchema ?? {})) next[key] = def.default;
-  return next;
+function DefaultArrayItemShell({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div style={{ display: "grid", gap: 8, border: "1px solid #ddd", padding: 8 }}>
+      {children}
+    </div>
+  );
 }
 
 function PrimitiveArrayItem({
   path,
   index,
   disabled,
+  itemType,
 }: {
   path: string;
   index: number;
   disabled: boolean;
+  itemType?: string;
 }): React.JSX.Element {
   const form = useFormContext<Record<string, unknown>>();
   const controller = useController({ control: form.control, name: `${path}.${index}` as const });
+  if (itemType === "boolean") {
+    return (
+      <input
+        type="checkbox"
+        checked={Boolean(controller.field.value)}
+        onChange={(event) => controller.field.onChange(event.target.checked)}
+        onBlur={controller.field.onBlur}
+        disabled={disabled}
+      />
+    );
+  }
+
+  if (itemType === "number" || itemType === "integer") {
+    return (
+      <input
+        type="number"
+        value={(controller.field.value as string | number | undefined) ?? ""}
+        onChange={(event) =>
+          controller.field.onChange(event.target.value === "" ? undefined : Number(event.target.value))
+        }
+        onBlur={controller.field.onBlur}
+        disabled={disabled}
+      />
+    );
+  }
+
   return (
     <input
       value={(controller.field.value as string | number | undefined) ?? ""}
@@ -113,15 +148,29 @@ export function DefaultArrayField({
   itemSchema,
   itemLayout,
   itemFieldMeta,
+  itemType,
+  slots,
 }: RenderArrayProps): React.JSX.Element | null {
   const isObjectArray = isArrayFieldDefinition(field.dataField) && field.dataField.itemType === "object";
   const computedItemLayout = itemLayout ?? Object.keys(itemSchema ?? {});
+  const ItemShell = slots?.ItemShell ?? DefaultArrayItemShell;
+  const footer = (
+    <button type="button" onClick={() => append()} disabled={state.disabled}>
+      add item
+    </button>
+  );
 
   return (
-    <div style={{ display: state.visible ? "grid" : "none", gap: 8 }}>
-      <label>{field.uiField?.label ?? field.path}</label>
+    <ArrayComposer
+      field={field}
+      state={state}
+      label={field.uiField?.label ?? field.path}
+      description={field.uiField?.description}
+      footer={footer}
+      slots={slots}
+    >
       {items.map((item, index) => (
-        <div key={item.id} style={{ display: "grid", gap: 8, border: "1px solid #ddd", padding: 8 }}>
+        <ItemShell key={item.id} field={field} state={state} index={index}>
           {isObjectArray ? (
             <ObjectArrayItem
               path={field.path}
@@ -132,21 +181,14 @@ export function DefaultArrayField({
               itemFieldMeta={itemFieldMeta ?? {}}
             />
           ) : (
-            <PrimitiveArrayItem path={field.path} index={index} disabled={state.disabled} />
+            <PrimitiveArrayItem path={field.path} index={index} disabled={state.disabled} itemType={itemType} />
           )}
           <button type="button" onClick={() => remove(index)} disabled={state.disabled}>
             remove
           </button>
-        </div>
+        </ItemShell>
       ))}
-      <button
-        type="button"
-        onClick={() => append(isObjectArray ? buildObjectDefault(itemSchema) : "")}
-        disabled={state.disabled}
-      >
-        add item
-      </button>
-    </div>
+    </ArrayComposer>
   );
 }
 

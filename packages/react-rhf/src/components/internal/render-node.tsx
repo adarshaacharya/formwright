@@ -9,7 +9,9 @@ import { useRuntimeContext } from "../../provider/runtime-context";
 import type { RuntimeAdapterContextValue } from "../../provider/runtime-context";
 import type {
   ArrayFieldRendererComponent,
+  ArrayRendererSlots,
   FieldRendererComponent,
+  FieldRendererSlots,
   LayoutRendererComponent,
   RenderArrayProps,
   RenderFieldProps,
@@ -36,10 +38,14 @@ function FieldNode({
   path,
   fieldRendererMap,
   arrayFieldRendererMap,
+  fieldSlots,
+  arraySlots,
 }: {
   path: FieldPath;
   fieldRendererMap: Record<string, FieldRendererComponent>;
   arrayFieldRendererMap: Record<string, ArrayFieldRendererComponent>;
+  fieldSlots?: FieldRendererSlots;
+  arraySlots?: ArrayRendererSlots;
 }): React.JSX.Element | null {
   const runtime = useFormRuntime();
   const resolvedField = runtime.getResolvedFields()[path];
@@ -54,19 +60,22 @@ function FieldNode({
         path={path}
         field={resolvedField}
         arrayFieldRendererMap={arrayFieldRendererMap}
+        arraySlots={arraySlots}
       />
     );
   }
 
-  return <ScalarFieldNode path={path} fieldRendererMap={fieldRendererMap} />;
+  return <ScalarFieldNode path={path} fieldRendererMap={fieldRendererMap} fieldSlots={fieldSlots} />;
 }
 
 function ScalarFieldNode({
   path,
   fieldRendererMap,
+  fieldSlots,
 }: {
   path: FieldPath;
   fieldRendererMap: Record<string, FieldRendererComponent>;
+  fieldSlots?: FieldRendererSlots;
 }): React.JSX.Element | null {
   const { field: runtimeField, state, value, error, setValue, onBlur } = useFormField(path);
   const { loading, options, error: datasourceError } = useDatasourceOptions(path);
@@ -83,6 +92,7 @@ function ScalarFieldNode({
     onBlur,
     loading,
     options,
+    slots: fieldSlots,
   };
 
   return <Renderer {...props} />;
@@ -92,10 +102,12 @@ function ArrayFieldNode({
   path,
   field,
   arrayFieldRendererMap,
+  arraySlots,
 }: {
   path: FieldPath;
   field: ResolvedFieldModel;
   arrayFieldRendererMap: Record<string, ArrayFieldRendererComponent>;
+  arraySlots?: ArrayRendererSlots;
 }): React.JSX.Element | null {
   const { evaluation } = useRuntimeContext();
   const arrayField = useFormArray(path);
@@ -119,12 +131,14 @@ function ArrayFieldNode({
     path,
     field,
     state: arrayState,
+    itemType: arrayField.itemType,
     items: arrayField.items,
     append: arrayField.append,
     remove: arrayField.remove,
     itemSchema,
     itemLayout,
     itemFieldMeta: componentProps.itemFields,
+    slots: arraySlots,
   };
 
   return <Renderer {...props} />;
@@ -135,12 +149,16 @@ function LayoutNode({
   fieldRendererMap,
   arrayFieldRendererMap,
   layoutRendererMap,
+  fieldSlots,
+  arraySlots,
   nodeKey,
 }: {
   node: ResolvedLayoutModel;
   fieldRendererMap: Record<string, FieldRendererComponent>;
   arrayFieldRendererMap: Record<string, ArrayFieldRendererComponent>;
   layoutRendererMap: Record<string, LayoutRendererComponent>;
+  fieldSlots?: FieldRendererSlots;
+  arraySlots?: ArrayRendererSlots;
   nodeKey: string;
 }): React.JSX.Element | null {
   const { evaluation } = useRuntimeContext();
@@ -157,6 +175,8 @@ function LayoutNode({
         path={node.fieldRef}
         fieldRendererMap={fieldRendererMap}
         arrayFieldRendererMap={arrayFieldRendererMap}
+        fieldSlots={fieldSlots}
+        arraySlots={arraySlots}
       />
     );
   }
@@ -165,15 +185,17 @@ function LayoutNode({
     layoutRendererMap[node.rendererKey] ?? layoutRendererMap[node.type] ?? FallbackLayoutRenderer;
 
   const children = (node.children ?? []).map((child, index) => (
-    <LayoutNode
-      key={`${nodeKey}-${index}`}
-      node={child}
-      nodeKey={`${nodeKey}-${index}`}
-      fieldRendererMap={fieldRendererMap}
-      arrayFieldRendererMap={arrayFieldRendererMap}
-      layoutRendererMap={layoutRendererMap}
-    />
-  ));
+      <LayoutNode
+        key={`${nodeKey}-${index}`}
+        node={child}
+        nodeKey={`${nodeKey}-${index}`}
+        fieldRendererMap={fieldRendererMap}
+        arrayFieldRendererMap={arrayFieldRendererMap}
+        layoutRendererMap={layoutRendererMap}
+        fieldSlots={fieldSlots}
+        arraySlots={arraySlots}
+      />
+    ));
 
   return (
     <LayoutRenderer layout={node} state={state}>
@@ -188,6 +210,8 @@ export function renderNode(
   fieldRendererMap: Record<string, FieldRendererComponent>,
   arrayFieldRendererMap: Record<string, ArrayFieldRendererComponent>,
   layoutRendererMap: Record<string, LayoutRendererComponent>,
+  fieldSlots?: FieldRendererSlots,
+  arraySlots?: ArrayRendererSlots,
 ): React.JSX.Element | null {
   return (
     <LayoutNode
@@ -196,6 +220,8 @@ export function renderNode(
       fieldRendererMap={fieldRendererMap}
       arrayFieldRendererMap={arrayFieldRendererMap}
       layoutRendererMap={layoutRendererMap}
+      fieldSlots={fieldSlots}
+      arraySlots={arraySlots}
     />
   );
 }
