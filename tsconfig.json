@@ -9,6 +9,7 @@
     { "path": "./packages/plugins-basic" },
     { "path": "./packages/plugins-async" },
     { "path": "./apps/demo" },
+    { "path": "./apps/schema-lab" },
     { "path": "./apps/docs-demo" }
   ]
 }

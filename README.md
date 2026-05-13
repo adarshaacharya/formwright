@@ -12,6 +12,7 @@ This repository contains the Formwright schema-driven form engine and related pa
 - `packages/plugins-basic`
 - `packages/plugins-async`
 - `apps/demo`
+- `apps/schema-lab`
 - `apps/docs-demo`
 
 ## Extension Model
