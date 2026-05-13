@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply m-0 min-h-screen text-slate-100;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(34, 211, 238, 0.16), transparent 34%),
+      radial-gradient(circle at 90% 12%, rgba(148, 163, 184, 0.12), transparent 28%),
+      linear-gradient(145deg, #020617 0%, #0b1220 50%, #111827 100%);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/75 shadow-[0_18px_45px_rgba(2,6,23,0.65)] backdrop-blur;
+  }
+
+  .panel-header {
+    @apply border-b border-slate-700 px-5 py-4 text-sm font-semibold tracking-wide text-slate-200;
+  }
+
+  .input-base {
+    @apply h-10 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30;
+  }
+
+  .button-base {
+    @apply inline-flex h-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .runtime-theme {
+    @apply text-sm text-slate-200;
+  }
+
+  .runtime-theme label,
+  .runtime-theme legend {
+    @apply mb-1 block text-sm font-semibold text-slate-200;
+  }
+
+  .runtime-theme input:not([type="checkbox"]):not([type="radio"]),
+  .runtime-theme select,
+  .runtime-theme textarea {
+    @apply h-10 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30;
+  }
+
+  .runtime-theme textarea {
+    @apply h-auto min-h-[110px] py-2;
+  }
+
+  .runtime-theme input[type="checkbox"],
+  .runtime-theme input[type="radio"] {
+    @apply h-4 w-4 accent-cyan-400;
+  }
+
+  .runtime-theme button {
+    @apply inline-flex h-9 items-center justify-center rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .runtime-theme fieldset {
+    @apply rounded-lg border border-slate-700 p-3;
+  }
+
+  .runtime-theme [role="alert"],
+  .runtime-theme .error {
+    @apply text-sm text-rose-300;
+  }
+}
