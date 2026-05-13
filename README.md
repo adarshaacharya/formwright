@@ -56,6 +56,120 @@ export function ProfileForm() {
 }
 ```
 
+## Bring Your Own Inputs (shadcn/ui, Radix UI, custom components)
+
+`FormRuntimeRoot` lets you replace controls in two ways:
+
+- `fieldSlots.Control`: wrap/replace control rendering for all fields
+- `fieldRendererMap`: replace rendering per field type
+
+### Slot-Based Pattern (recommended default)
+
+Formwright uses a slot-based composition model so you can customize UI without rewriting field logic.
+Slots map to stable form structure parts (`Shell`, `Label`, `Description`, `Control`, `Error`, `Help`), while value/state wiring stays in the runtime.
+
+Use slots when you want:
+
+- consistent design-system styling across every field
+- shared behavior (error placement, helper text style, wrappers)
+- minimal custom code with maximum reuse
+
+Use `fieldRendererMap` when you want:
+
+- completely different behavior for a specific field type
+- component-level replacement (for example, custom select/date/file controls)
+
+### Option 1: Global control slot (easy shadcn-style wrapper)
+
+```tsx
+import { FormRuntimeRoot, type FieldControlSlotProps } from "formwright/react";
+
+function ShadcnControlSlot({
+  value,
+  onChange,
+  onBlur,
+  error,
+  defaultControl,
+}: FieldControlSlotProps) {
+  // For full custom controls, render your own Input/Select here using value/onChange/onBlur.
+  // Use defaultControl when you only want to wrap default behavior.
+  return (
+    <div className="space-y-1">
+      {defaultControl}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
+export function FormWithCustomSlot() {
+  return (
+    <FormRuntimeRoot
+      rootLayoutId="root"
+      fieldSlots={{
+        Control: ShadcnControlSlot,
+        Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
+        Help: ({ helpText }) =>
+          helpText ? <p className="text-xs text-muted-foreground">{helpText}</p> : null,
+      }}
+    />
+  );
+}
+```
+
+### Option 2: Per-type renderer map (example with Radix Select)
+
+```tsx
+import * as React from "react";
+import * as Select from "@radix-ui/react-select";
+import {
+  FormRuntimeRoot,
+  createDefaultRendererMaps,
+  type FieldRendererComponent,
+} from "formwright/react";
+
+const RadixSelectField: FieldRendererComponent = ({ value, onChange, options }) => {
+  const selected = typeof value === "string" ? value : "";
+
+  return (
+    <Select.Root value={selected} onValueChange={onChange}>
+      <Select.Trigger aria-label="Select value">
+        <Select.Value placeholder="Choose..." />
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Viewport>
+          {(options ?? []).map((opt) => (
+            <Select.Item key={opt.value} value={String(opt.value)}>
+              <Select.ItemText>{opt.label}</Select.ItemText>
+            </Select.Item>
+          ))}
+        </Select.Viewport>
+      </Select.Content>
+    </Select.Root>
+  );
+};
+
+export function FormWithRadixRenderer() {
+  const { fieldRendererMap } = createDefaultRendererMaps();
+
+  return (
+    <FormRuntimeRoot
+      rootLayoutId="root"
+      fieldRendererMap={{
+        ...fieldRendererMap,
+        // Use the field type key from your schema (example: "select")
+        select: RadixSelectField,
+      }}
+    />
+  );
+}
+```
+
+Install whichever UI packages you use:
+
+```bash
+npm install @radix-ui/react-select
+```
+
 ## Peer Dependencies
 
 `formwright/react` expects:
