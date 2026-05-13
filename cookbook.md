@@ -2,7 +2,7 @@
 
 Practical patterns for integrating Formwright with your design system and custom validation.
 
-## 1) shadcn Input mapped by field type
+## Integration Style 1: Per-type shadcn Input mapping
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -54,7 +54,7 @@ export function FormWithShadcnInputs() {
 }
 ```
 
-## 2) shadcn Select with datasource options
+## Integration Style 2: Per-type shadcn Select with datasource options
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -100,7 +100,7 @@ export function FormWithShadcnSelect() {
 }
 ```
 
-## 3) Date picker with Date <-> string conversion
+## Integration Style 3: Date picker with Date <-> string conversion
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -122,7 +122,7 @@ const DateField: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## 4) Checkbox/Switch boolean binding
+## Integration Style 4: Checkbox/Switch boolean binding
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -140,7 +140,7 @@ const BooleanSwitch: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## 5) Slot-only design-system wrapper
+## Integration Style 5: Slot-only design-system wrapper
 
 ```tsx
 import { FormRuntimeRoot } from "formwright/react";
@@ -161,7 +161,7 @@ export function FormWithThemeSlots() {
 }
 ```
 
-## 6) Mixed approach (recommended)
+## Integration Style 6: Mixed mode (slots + per-type renderers)
 
 Use slots for global structure/styling, and use `fieldRendererMap` only for special field types:
 
@@ -180,7 +180,7 @@ Use slots for global structure/styling, and use `fieldRendererMap` only for spec
 />
 ```
 
-## 7) Validation + error wiring
+## Integration Style 7: Validation + error wiring
 
 Always render `error` in custom controls so users keep validation feedback:
 

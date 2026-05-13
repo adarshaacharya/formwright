@@ -64,26 +64,17 @@ export function ProfileForm() {
 
 ## Bring Your Own Inputs (shadcn/ui, Radix UI, custom components)
 
-`FormRuntimeRoot` lets you replace controls in two ways:
+Formwright supports multiple integration styles. Choose the one that fits your app:
 
-- `fieldSlots.Control`: wrap/replace control rendering for all fields
-- `fieldRendererMap`: replace rendering per field type
+1. Schema + default renderer: fastest setup
+2. Schema + slot-based theming: customize global form UI with slots
+3. Schema + per-type renderer map: replace specific field controls
+4. Mixed mode: slots for global styling + per-type overrides for complex fields
 
-### Slot-Based Pattern (recommended default)
+`FormRuntimeRoot` exposes two extension points:
 
-Formwright uses a slot-based composition model so you can customize UI without rewriting field logic.
-Slots map to stable form structure parts (`Shell`, `Label`, `Description`, `Control`, `Error`, `Help`), while value/state wiring stays in the runtime.
-
-Use slots when you want:
-
-- consistent design-system styling across every field
-- shared behavior (error placement, helper text style, wrappers)
-- minimal custom code with maximum reuse
-
-Use `fieldRendererMap` when you want:
-
-- completely different behavior for a specific field type
-- component-level replacement (for example, custom select/date/file controls)
+- `fieldSlots`: customize stable UI parts (`Shell`, `Label`, `Description`, `Control`, `Error`, `Help`)
+- `fieldRendererMap`: replace rendering by field type key (for example `select`, `date`, `checkbox`)
 
 ### Option 1: Global control slot (easy shadcn-style wrapper)
 
