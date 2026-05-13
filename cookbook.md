@@ -2,7 +2,36 @@
 
 Practical patterns for integrating Formwright with your design system and custom validation.
 
-## Integration Style 1: Per-type shadcn Input mapping
+## Integration Style 0: Schema + default renderer (fastest path)
+
+```tsx
+import { buildForm, defineForm, field, layout } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+
+const profile = defineForm({ id: "profile" });
+const fullName = field.text("fullName", { label: "Full name", required: true });
+const email = field.email("email", { label: "Email" });
+
+const form = buildForm({
+  form: profile,
+  fields: [fullName, email],
+  layout: layout.stack("root", [layout.field(fullName), layout.field(email)]),
+});
+
+const runtime = createFormRuntime({ form, plugins: registerBasicPlugins() });
+
+export function ProfileForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## Integration Style 1: Schema + per-type shadcn Input mapping
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -54,7 +83,7 @@ export function FormWithShadcnInputs() {
 }
 ```
 
-## Integration Style 2: Per-type shadcn Select with datasource options
+## Integration Style 2: Schema + per-type shadcn Select with datasource options
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -100,7 +129,7 @@ export function FormWithShadcnSelect() {
 }
 ```
 
-## Integration Style 3: Date picker with Date <-> string conversion
+## Integration Style 3: Schema + date picker with Date <-> string conversion
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -122,7 +151,7 @@ const DateField: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## Integration Style 4: Checkbox/Switch boolean binding
+## Integration Style 4: Schema + checkbox/switch boolean binding
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -140,44 +169,82 @@ const BooleanSwitch: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## Integration Style 5: Slot-only design-system wrapper
+## Integration Style 5: Schema + slot-only design-system wrapper
 
 ```tsx
-import { FormRuntimeRoot } from "formwright/react";
+import { buildForm, defineForm, field, layout } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+
+const profile = defineForm({ id: "profile-slot-themed" });
+const fullName = field.text("fullName", { label: "Full name", required: true });
+const email = field.email("email", { label: "Email" });
+
+const form = buildForm({
+  form: profile,
+  fields: [fullName, email],
+  layout: layout.stack("root", [layout.field(fullName), layout.field(email)]),
+});
+const runtime = createFormRuntime({ form });
 
 export function FormWithThemeSlots() {
   return (
-    <FormRuntimeRoot
-      rootLayoutId="root"
-      fieldSlots={{
-        Shell: ({ children }) => <div className="space-y-2 rounded-md border p-4">{children}</div>,
-        Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
-        Error: ({ error }) => (error ? <p className="text-sm text-destructive">{error}</p> : null),
-        Help: ({ helpText }) =>
-          helpText ? <p className="text-xs text-muted-foreground">{helpText}</p> : null,
-      }}
-    />
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot
+        rootLayoutId="root"
+        fieldSlots={{
+          Shell: ({ children }) => <div className="space-y-2 rounded-md border p-4">{children}</div>,
+          Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
+          Error: ({ error }) => (error ? <p className="text-sm text-destructive">{error}</p> : null),
+          Help: ({ helpText }) =>
+            helpText ? <p className="text-xs text-muted-foreground">{helpText}</p> : null,
+        }}
+      />
+    </FormRuntimeProvider>
   );
 }
 ```
 
-## Integration Style 6: Mixed mode (slots + per-type renderers)
+## Integration Style 6: Schema + mixed mode (slots + per-type renderers)
 
-Use slots for global structure/styling, and use `fieldRendererMap` only for special field types:
+Use slots for global structure/styling, and use `fieldRendererMap` only for special field types.
 
 ```tsx
-<FormRuntimeRoot
-  rootLayoutId="root"
-  fieldSlots={{
-    Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
-    Error: ({ error }) => (error ? <p className="text-sm text-destructive">{error}</p> : null),
-  }}
-  fieldRendererMap={{
-    ...createDefaultRendererMaps().fieldRendererMap,
-    select: ShadcnSelect,
-    date: DateField,
-  }}
-/>
+import { buildForm, defineForm, field, layout } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot, createDefaultRendererMaps } from "formwright/react";
+
+const account = defineForm({ id: "account" });
+const role = field.select("role", { label: "Role", datasource: "roles" });
+const dob = field.date("dob", { label: "Date of birth" });
+
+const form = buildForm({
+  form: account,
+  fields: [role, dob],
+  layout: layout.stack("root", [layout.field(role), layout.field(dob)]),
+});
+const runtime = createFormRuntime({ form });
+
+export function MixedForm() {
+  const { fieldRendererMap } = createDefaultRendererMaps();
+
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot
+        rootLayoutId="root"
+        fieldSlots={{
+          Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
+          Error: ({ error }) => (error ? <p className="text-sm text-destructive">{error}</p> : null),
+        }}
+        fieldRendererMap={{
+          ...fieldRendererMap,
+          select: ShadcnSelect,
+          date: DateField,
+        }}
+      />
+    </FormRuntimeProvider>
+  );
+}
 ```
 
 ## Integration Style 7: Validation + error wiring
