@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "oo-component-documentation": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/oo-component-documentation/SKILL.md",
+      "computedHash": "5d92d232f6cd4bab9177811da0b7b8ee5bc3fa92d707f943835541d9959d7e78"
+    },
     "react-hook-form": {
       "source": "pproenca/dot-skills",
       "sourceType": "github",

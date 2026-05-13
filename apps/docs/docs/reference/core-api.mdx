@@ -1,0 +1,34 @@
+---
+sidebar_position: 5
+---
+
+# API Reference: @formwright/core
+
+Public API comes from `packages/core/src/index.ts`.
+
+## Primary Exports
+
+- `createFormRuntime`
+- `createPluginRegistry`
+- `DuplicatePluginError`
+- `FormRuntime` and related runtime/plugin types
+
+## `createFormRuntime`
+
+```ts
+createFormRuntime(input: CreateFormRuntimeInput): FormRuntime
+```
+
+Creates a runtime from a form definition, optional runtime context, and optional plugins.
+
+## `FormRuntime`
+
+- `getFormDefinition()`
+- `getResolvedFields()`
+- `getResolvedLayout()`
+- `getEvaluationDependencies()`
+- `getRuntimeContext()`
+- `getPluginRegistry()`
+- `evaluate(values?)`
+
+For end-to-end usage patterns, see [Quickstart](/docs/quickstart/getting-started) and [Guides](/docs/guides/common-use-cases).

@@ -1,0 +1,50 @@
+---
+sidebar_position: 1
+---
+
+# Why Formwright Exists
+
+Most teams start forms as local UI code. Over time, forms become hard to maintain because validation, conditional logic, layout, and data loading are scattered across components.
+
+Formwright exists to centralize form behavior in a schema-driven runtime so teams can ship complex forms without turning UI code into business-logic code.
+
+## The Problem
+
+Teams usually hit these issues:
+
+- Conditional logic is duplicated across components.
+- Form behavior is tightly coupled to one UI implementation.
+- Reusing form behavior across projects is difficult.
+- Custom widgets and domain fields require invasive rewrites.
+- Async option loading logic is inconsistent between forms.
+
+## What Formwright Solves
+
+Formwright separates responsibilities clearly:
+
+- Schema defines meaning (`what` the form should do).
+- Runtime evaluates behavior (`when` and `how` logic applies).
+- React adapter renders UI (`how` it looks and binds to RHF).
+- Plugins extend semantics (operators, effects, datasources).
+
+This keeps forms evolvable while preserving product-specific UI flexibility.
+
+## When to Use Formwright
+
+Use Formwright when you need:
+
+- Dynamic forms with rule-driven behavior.
+- A reusable form runtime across multiple screens/apps.
+- Freedom to customize rendering without rewriting logic.
+- A plugin model for domain-specific behavior.
+
+## When Not to Use It
+
+If your app has only a few simple static forms, plain React Hook Form without a schema runtime is often enough.
+
+## Design Principles
+
+- Headless runtime first, UI second.
+- Public API boundaries by package entrypoints.
+- Extensibility via plugins, not ad-hoc conditionals.
+- Developer ergonomics through practical guides and copy-paste examples.

@@ -2,6 +2,13 @@
 
 This repository contains the Formwright schema-driven form engine and related packages.
 
+## npm Package
+
+Formwright is published as a single npm package:
+
+- `formwright`
+- optional subpath exports: `formwright/core`, `formwright/schema`, `formwright/react`, `formwright/plugins`
+
 ## Workspace Layout
 
 - `packages/contract`
@@ -13,7 +20,7 @@ This repository contains the Formwright schema-driven form engine and related pa
 - `packages/plugins-async`
 - `apps/demo`
 - `apps/schema-lab`
-- `apps/docs-demo`
+- `apps/docs`
 
 ## Extension Model
 
@@ -34,3 +41,9 @@ See `docs/architecture.md` for the package and runtime boundary overview.
 - `pnpm test`
 - `pnpm typecheck`
 - `pnpm clean`
+
+## Release Automation
+
+- CI runs on pull requests and `main` pushes.
+- Release runs from `main` with `semantic-release`.
+- npm publish uses trusted publishing (OIDC provenance), not a long-lived npm token.

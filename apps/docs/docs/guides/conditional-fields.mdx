@@ -1,0 +1,30 @@
+---
+sidebar_position: 5
+---
+
+# Guide: Conditional Fields
+
+This is the most common integration pattern.
+
+## Step 1: Define Trigger Field
+
+Example: `accountType` select with `individual` and `company` values.
+
+## Step 2: Add Target Field
+
+Example: `company.name` text field.
+
+## Step 3: Add Rules
+
+```ts
+rules: [
+  rule.when(fieldRef(accountType).eq("company")).show(companyName),
+  rule.when(fieldRef(accountType).eq("individual")).hide(companyName),
+]
+```
+
+## Step 4: Verify
+
+- Change `accountType` in UI
+- Confirm `company.name` visibility toggles
+- Confirm submit payload behavior matches `hiddenFieldPolicy`
