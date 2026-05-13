@@ -6,8 +6,10 @@ import type { FormDefinition } from "@formwright/contract";
 import { createFormRuntime, type FormPlugin } from "@formwright/core";
 import { FormRuntimeProvider } from "./form-runtime-provider";
 import { FormRuntimeRoot } from "../components/form-runtime-root";
+import { FieldComposer } from "../components/field-composer";
 import { useRuntimeContext } from "./runtime-context";
 import { useFormContext } from "react-hook-form";
+import type { FieldRendererComponent, FieldRendererSlots, RenderFieldProps } from "../types/public-types";
 
 afterEach(() => {
   cleanup();
@@ -171,6 +173,42 @@ function makeNumericArrayForm(): FormDefinition {
   };
 }
 
+function makeCustomCountryForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "custom-country-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        country: {
+          valueType: "string",
+          default: "",
+          enum: ["US", "NP"],
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        country: {
+          fieldType: "select",
+          renderer: "country-select",
+          label: "Country",
+          options: [
+            { label: "United States", value: "US" },
+            { label: "Nepal", value: "NP" },
+          ],
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "country-root",
+        children: [{ type: "field", ref: "country" }],
+      },
+    },
+    behaviorSchema: {},
+  };
+}
+
 function createDelayedDatasourcePlugin(): FormPlugin {
   return {
     kind: "datasource",
@@ -200,6 +238,32 @@ function UnrelatedSetter(): React.JSX.Element {
     </button>
   );
 }
+
+const CustomCountryRenderer: FieldRendererComponent = ({
+  field,
+  state,
+  value,
+  error,
+  onChange,
+}) => (
+  <FieldComposer
+    field={field}
+    state={state}
+    label={field.uiField?.label ?? field.path}
+    error={error}
+  >
+    <div data-testid="custom-country-renderer">
+      <select value={(value as string | undefined) ?? ""} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Select</option>
+        {(field.uiField?.options ?? []).map((option) => (
+          <option key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  </FieldComposer>
+);
 
 describe("@formwright/react-rhf adapter", () => {
   it("keeps hidden values when policy is keep", async () => {
@@ -315,5 +379,70 @@ describe("@formwright/react-rhf adapter", () => {
 
     expect(screen.queryByRole("option", { name: "Canada" })).not.toBeNull();
     expect(screen.getByRole("combobox").getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("supports field control slot overrides without replacing field composition", async () => {
+    const runtime = createFormRuntime({
+      form: makeForm(),
+      context: { mode: "create" },
+    });
+    const fieldSlots: FieldRendererSlots = {
+      Control: ({ field, value, onChange, onBlur, defaultControl }) => {
+        if (field.path !== "company.name") {
+          return <>{defaultControl}</>;
+        }
+
+        return (
+          <div data-testid="slot-control">
+            <input
+              aria-label="Company Name"
+              value={(value as string | undefined) ?? ""}
+              onChange={(event) => onChange(event.target.value)}
+              onBlur={onBlur}
+            />
+          </div>
+        );
+      },
+    };
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="root" fieldSlots={fieldSlots} />
+        <ValuesProbe />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "company" } });
+    const input = screen.getByLabelText("Company Name");
+    changeTextInput(input, "Acme");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("slot-control")).not.toBeNull();
+      const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
+      expect(values["company.name"]).toBe("Acme");
+    });
+  });
+
+  it("supports full custom field renderers built with FieldComposer", async () => {
+    const runtime = createFormRuntime({
+      form: makeCustomCountryForm(),
+      context: { mode: "create" },
+    });
+    const fieldRendererMap: Record<string, FieldRendererComponent> = {
+      "country-select": CustomCountryRenderer,
+    };
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="country-root" fieldRendererMap={fieldRendererMap} />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "NP" } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("custom-country-renderer")).not.toBeNull();
+      expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("NP");
+    });
   });
 });

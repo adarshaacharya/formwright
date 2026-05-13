@@ -135,4 +135,4 @@ Validation adapter support should be covered by:
 2. define public validation adapter types in core/react-rhf
 3. add provider-level adapter configuration
 4. ship first adapter package (`validation-zod`)
-5. add adapter demo scenario in playground
+5. add adapter demo scenario in demo app

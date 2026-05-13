@@ -384,7 +384,7 @@ Notes:
 - this is another strong candidate for internal Effect usage
 - keep request and retry orchestration here, not in renderers
 
-## `apps/playground`
+## `apps/demo`
 
 Purpose:
 
@@ -396,7 +396,7 @@ Purpose:
 Recommended structure:
 
 ```text
-apps/playground/
+apps/demo/
   src/
     app/
       app.tsx
@@ -422,7 +422,7 @@ apps/playground/
 Notes:
 
 - use this app to break the system early
-- do not let playground-only shortcuts leak back into packages
+- do not let demo-only shortcuts leak back into packages
 
 ## `apps/docs-demo`
 

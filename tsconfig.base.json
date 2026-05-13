@@ -12,6 +12,7 @@
     "paths": {
       "@formwright/contract": ["packages/contract/src/index.ts"],
       "@formwright/core": ["packages/core/src/index.ts"],
+      "@formwright/schema-builder": ["packages/schema-builder/src/index.ts"],
       "@formwright/react-rhf": ["packages/react-rhf/src/index.ts"],
       "@formwright/renderers-default": ["packages/renderers-default/src/index.ts"],
       "@formwright/plugins-basic": ["packages/plugins-basic/src/index.ts"],

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const playgroundValidationSchema = z
+const demoValidationSchema = z
   .object({
     accountType: z.enum(["individual", "company"]),
     company: z
@@ -33,4 +33,4 @@ const playgroundValidationSchema = z
     }
   });
 
-export const playgroundValidationResolver = zodResolver(playgroundValidationSchema);
+export const demoValidationResolver = zodResolver(demoValidationSchema);

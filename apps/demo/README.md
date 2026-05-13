@@ -1,6 +1,6 @@
-# Playground Extension Examples
+# Demo Extension Examples
 
-This playground demonstrates the three supported UI extension modes in Formwright.
+This demo app demonstrates the three supported UI extension modes in Formwright.
 
 ## 1. Slot Override
 
@@ -32,4 +32,3 @@ Example:
 - Styling or markup change only: use a slot
 - Custom widget with framework composition: use a composer
 - New semantic widget or domain-specific control: use a renderer map entry or plugin
-

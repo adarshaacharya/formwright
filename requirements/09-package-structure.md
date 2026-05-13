@@ -64,7 +64,7 @@ Contains:
 
 ## Suggested apps
 
-### `apps/playground`
+### `apps/demo`
 
 Used to validate:
 

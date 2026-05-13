@@ -36,6 +36,7 @@ Documents:
 - [24-validation-library-adapters.md](/Users/adarsha/Coding/personal/form-builder/requirements/24-validation-library-adapters.md)
 - [25-renderer-strategy-and-ui-adapters.md](/Users/adarsha/Coding/personal/form-builder/requirements/25-renderer-strategy-and-ui-adapters.md)
 - [26-renderer-extension-modes.md](/Users/adarsha/Coding/personal/form-builder/requirements/26-renderer-extension-modes.md)
+- [27-schema-builder-authoring.md](/Users/adarsha/Coding/personal/form-builder/requirements/27-schema-builder-authoring.md)
 
 Suggested reading order:
 
@@ -63,3 +64,4 @@ Suggested reading order:
 24. validation library adapters
 25. renderer strategy and UI adapters
 26. renderer extension modes
+27. schema builder authoring

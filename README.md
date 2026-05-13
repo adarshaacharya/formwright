@@ -6,16 +6,17 @@ This repository contains the Formwright schema-driven form engine and related pa
 
 - `packages/contract`
 - `packages/core`
+- `packages/schema-builder`
 - `packages/react-rhf`
 - `packages/renderers-default`
 - `packages/plugins-basic`
 - `packages/plugins-async`
-- `apps/playground`
+- `apps/demo`
 - `apps/docs-demo`
 
 ## Extension Model
 
-See `apps/playground/README.md` for the renderer extension modes demonstrated in the playground:
+See `apps/demo/README.md` for the renderer extension modes demonstrated in the demo app:
 
 - slot override
 - composer-based custom renderer

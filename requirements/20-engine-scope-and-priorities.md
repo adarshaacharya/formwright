@@ -185,7 +185,7 @@ The implementation should focus on:
 4. default renderer package
 5. basic plugin package
 6. async plugin package
-7. playground app
+7. demo app
 
 ## Final direction
 

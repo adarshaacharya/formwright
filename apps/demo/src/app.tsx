@@ -6,7 +6,7 @@ import { createDefaultRendererMaps } from "@formwright/renderers-default";
 import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
 import type { FieldRendererSlots } from "@formwright/react-rhf";
 import { basicSchema } from "./schemas/basic-schema";
-import { playgroundValidationResolver } from "./demo/validation";
+import { demoValidationResolver } from "./demo/validation";
 import { CountrySelectRenderer } from "./components/country-select-renderer";
 
 export function App(): React.JSX.Element {
@@ -57,11 +57,11 @@ export function App(): React.JSX.Element {
   return (
     <FormRuntimeProvider
       runtime={runtime}
-      validationResolver={playgroundValidationResolver}
+      validationResolver={demoValidationResolver}
       hiddenFieldPolicy={hiddenFieldPolicy}
     >
       <div style={{ maxWidth: 520, margin: "40px auto", display: "grid", gap: 20 }}>
-        <h1>Formwright Playground</h1>
+        <h1>Formwright Demo</h1>
         <p>Change account type to see rule-based show/hide behavior.</p>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <strong>Mode:</strong>
