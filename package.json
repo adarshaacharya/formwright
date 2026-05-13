@@ -1,7 +1,7 @@
 {
   "name": "formwright",
   "private": false,
-  "version": "0.0.0-development",
+  "version": "0.1.0",
   "description": "Schema-driven form engine monorepo",
   "license": "MIT",
   "type": "module",

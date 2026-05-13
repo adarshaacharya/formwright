@@ -1,49 +1,65 @@
-# Formwright Monorepo
+# Formwright
 
-This repository contains the Formwright schema-driven form engine and related packages.
+Formwright is a schema-driven form engine for building dynamic forms with runtime rules, plugins, and React rendering support.
 
-## npm Package
+## Install
 
-Formwright is published as a single npm package:
+```bash
+npm install formwright
+```
 
-- `formwright`
-- optional subpath exports: `formwright/core`, `formwright/schema`, `formwright/react`, `formwright/plugins`
+## Exports
 
-## Workspace Layout
+```ts
+import { createFormRuntime } from "formwright/core";
+import { defineForm, buildForm } from "formwright/schema";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins, registerAsyncPlugins } from "formwright/plugins";
+```
 
-- `packages/contract`
-- `packages/core`
-- `packages/schema-builder`
-- `packages/react-rhf`
-- `packages/renderers-default`
-- `packages/plugins-basic`
-- `packages/plugins-async`
-- `apps/demo`
-- `apps/schema-lab`
-- `apps/docs`
+You can also import from the root package:
 
-## Extension Model
+```ts
+import { createFormRuntime, defineForm } from "formwright";
+```
 
-See `apps/demo/README.md` for the renderer extension modes demonstrated in the demo app:
+## Basic Usage
 
-- slot override
-- composer-based custom renderer
-- full renderer replacement
+```tsx
+import { defineForm, buildForm } from "formwright/schema";
+import { field, layout } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
 
-See `docs/architecture.md` for the package and runtime boundary overview.
+const profileForm = defineForm({ id: "profile-form" });
+const nameField = field.text("name", { label: "Name", required: true });
+const emailField = field.email("email", { label: "Email" });
 
-## Commands
+const form = buildForm({
+  form: profileForm,
+  fields: [nameField, emailField],
+  layout: layout.stack("root", [layout.field(nameField), layout.field(emailField)]),
+});
+const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+  context: { mode: "create" },
+});
 
-- `pnpm install`
-- `pnpm build`
-- `pnpm dev`
-- `pnpm lint`
-- `pnpm test`
-- `pnpm typecheck`
-- `pnpm clean`
+export function ProfileForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
 
-## Release Automation
+## Peer Dependencies
 
-- CI runs on pull requests and `main` pushes.
-- Release runs from `main` with `semantic-release`.
-- npm publish uses trusted publishing (OIDC provenance), not a long-lived npm token.
+`formwright/react` expects:
+
+- `react >= 18`
+- `react-dom >= 18`
+- `react-hook-form ^7.53.0`
