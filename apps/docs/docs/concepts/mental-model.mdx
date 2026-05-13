@@ -1,0 +1,33 @@
+---
+sidebar_position: 3
+---
+
+# Mental Model
+
+Use this model when integrating Formwright in product code.
+
+## You Provide
+
+- A `FormDefinition` schema (fields, layout, rules, datasources)
+- Optional plugins for custom semantics
+- Optional custom renderer mappings
+
+## Formwright Provides
+
+- Runtime evaluation (`@formwright/core`)
+- React Hook Form integration (`@formwright/react-rhf`)
+- Default renderer maps (`@formwright/renderers-default`)
+
+## Decision Guide
+
+- Want to change only a label/control wrapper? Use slots.
+- Want custom UI widget with Formwright composition? Use composer renderer.
+- Want full semantic widget replacement? Use renderer map key.
+
+## Package Cheat Sheet
+
+- `@formwright/contract`: schema types
+- `@formwright/core`: runtime/evaluation
+- `@formwright/react-rhf`: provider + root + hooks
+- `@formwright/plugins-basic`: default operators/effects
+- `@formwright/plugins-async`: async datasource plugins

@@ -1,0 +1,23 @@
+{
+  "name": "@formwright/schema-builder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: build @formwright/schema-builder\"",
+    "dev": "echo \"TODO: dev @formwright/schema-builder\"",
+    "lint": "echo \"TODO: lint @formwright/schema-builder\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist build coverage"
+  },
+  "dependencies": {
+    "@formwright/contract": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

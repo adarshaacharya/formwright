@@ -1,0 +1,15 @@
+# Architecture Overview
+
+Formwright is a schema-driven form engine for React Hook Form.
+
+## Core Layers
+
+1. Contract Layer (`@formwright/contract`)
+2. Runtime Core (`@formwright/core`)
+3. React Hook Form Adapter (`@formwright/react-rhf`)
+4. Default Renderers (`@formwright/renderers-default`)
+5. Plugins (`@formwright/plugins-basic`, `@formwright/plugins-async`)
+
+## Design Goal
+
+Keep business semantics in schema/runtime/plugins, and keep visual concerns in renderer layers.

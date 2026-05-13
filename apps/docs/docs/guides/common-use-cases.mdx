@@ -1,0 +1,40 @@
+---
+sidebar_position: 4
+---
+
+# Common Use Cases
+
+## Show/Hide a Field from Another Field
+
+Use rules in schema:
+
+```ts
+rule.when(fieldRef(accountType).eq("company")).show(companyName)
+rule.when(fieldRef(accountType).eq("individual")).hide(companyName)
+```
+
+## Add a Custom Field Renderer
+
+- Create React component implementing renderer props.
+- Register in `fieldRendererMap`.
+- Point schema field node renderer to that key.
+
+See [Guide: Custom Renderer](/docs/guides/custom-renderer).
+
+## Control Hidden Field Behavior
+
+In `FormRuntimeProvider`, set:
+
+- `hiddenFieldPolicy="keep"`
+- `hiddenFieldPolicy="clear"`
+- `hiddenFieldPolicy="unregister"`
+
+Pick based on whether hidden values should remain in submit payload.
+
+## Use Runtime Context
+
+Pass mode/role/flags into runtime context and reference in rules.
+
+```ts
+createFormRuntime({ form, context: { mode: "view" } })
+```

@@ -1,0 +1,65 @@
+---
+sidebar_position: 2
+---
+
+# Get Started in 10 Minutes
+
+This is the fastest path to render a working Formwright form in React.
+
+## Prerequisites
+
+- React 18+
+- React Hook Form 7+
+- A `FormDefinition` schema
+
+## Install
+
+```bash
+pnpm add @formwright/core @formwright/react-rhf @formwright/plugins-basic @formwright/plugins-async @formwright/renderers-default @formwright/contract react-hook-form
+```
+
+## 1. Create Runtime
+
+```ts
+import { createFormRuntime } from "@formwright/core";
+import { registerBasicPlugins } from "@formwright/plugins-basic";
+import { registerAsyncPlugins } from "@formwright/plugins-async";
+
+const runtime = createFormRuntime({
+  form,
+  context: { mode: "create" },
+  plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+});
+```
+
+## 2. Render Form
+
+```tsx
+import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
+import { createDefaultRendererMaps } from "@formwright/renderers-default";
+
+const rendererMaps = createDefaultRendererMaps();
+
+export function FormPage() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot
+        rootLayoutId="root-stack"
+        fieldRendererMap={rendererMaps.fieldRendererMap}
+        arrayFieldRendererMap={rendererMaps.arrayFieldRendererMap}
+        layoutRendererMap={rendererMaps.layoutRendererMap}
+      />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## 3. Add Rules and Datasources
+
+Your schema can define conditional behavior and options loading:
+
+- `rule.when(...).show(...)`
+- `rule.when(...).hide(...)`
+- `datasource.static(...)` or async datasource plugin
+
+See [Guide: Conditional Fields](/docs/guides/conditional-fields) and [Guide: Custom Renderer](/docs/guides/custom-renderer).

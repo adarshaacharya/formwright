@@ -1,0 +1,29 @@
+---
+sidebar_position: 6
+---
+
+# Glossary
+
+## Monorepo
+
+A single repository containing multiple packages and apps. In this project, `packages/*` are libraries and `apps/*` are runnable applications.
+
+## Contract
+
+Shared schema/type definitions that other layers depend on (`@formwright/contract`).
+
+## Runtime
+
+The evaluation engine that processes form definitions into derived field/layout/value state (`@formwright/core`).
+
+## Adapter
+
+A framework-specific integration layer that binds runtime output to UI/runtime framework APIs (`@formwright/react-rhf`).
+
+## Renderer Map
+
+A mapping from semantic renderer keys to concrete React components.
+
+## Plugin
+
+An extension module that adds operator/effect/validator/datasource/field/layout behavior.

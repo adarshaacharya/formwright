@@ -9,12 +9,26 @@
     "build": "echo \"TODO: build @formwright/react-rhf\"",
     "dev": "echo \"TODO: dev @formwright/react-rhf\"",
     "lint": "echo \"TODO: lint @formwright/react-rhf\"",
-    "test": "echo \"TODO: test @formwright/react-rhf\"",
-    "typecheck": "echo \"TODO: typecheck @formwright/react-rhf\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist build coverage"
   },
   "dependencies": {
     "@formwright/contract": "workspace:*",
-    "@formwright/core": "workspace:*"
+    "@formwright/core": "workspace:*",
+    "react-hook-form": "^7.53.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@testing-library/react": "^16.0.1",
+    "jsdom": "^24.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }

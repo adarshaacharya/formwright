@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/contract" },
+    { "path": "./packages/core" },
+    { "path": "./packages/schema-builder" },
+    { "path": "./packages/react-rhf" },
+    { "path": "./packages/renderers-default" },
+    { "path": "./packages/plugins-basic" },
+    { "path": "./packages/plugins-async" },
+    { "path": "./apps/demo" },
+    { "path": "./apps/schema-lab" },
+    { "path": "./apps/docs" }
+  ]
+}

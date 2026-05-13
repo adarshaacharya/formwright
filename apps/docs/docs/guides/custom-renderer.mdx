@@ -1,0 +1,47 @@
+---
+sidebar_position: 4
+---
+
+# Guide: Add a Custom Renderer
+
+Use this when a field needs domain-specific UI.
+
+## Step 1: Implement Renderer
+
+```tsx
+import { FieldComposer, type RenderFieldProps } from "@formwright/react-rhf";
+
+export function CountrySelectRenderer(props: RenderFieldProps) {
+  return (
+    <FieldComposer
+      field={props.field}
+      state={props.state}
+      label={props.field.uiField?.label ?? props.field.path}
+      error={props.error}
+    >
+      <select
+        value={(props.value as string | undefined) ?? ""}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    </FieldComposer>
+  );
+}
+```
+
+## Step 2: Register in Renderer Map
+
+```tsx
+const fieldRendererMap = {
+  ...rendererMaps.fieldRendererMap,
+  "country-select": CountrySelectRenderer,
+};
+```
+
+## Step 3: Use Renderer Key in UI Schema
+
+Set `renderer: "country-select"` for target field node.
+
+## When to Use Other Approaches
+
+- Use slot override for small visual changes.
+- Use full replacement only when composer path is too limiting.

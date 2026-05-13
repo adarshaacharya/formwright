@@ -1,0 +1,34 @@
+{
+  "name": "@formwright/demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "lint": "echo \"TODO: lint demo\"",
+    "test": "echo \"TODO: test demo\"",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist build coverage"
+  },
+  "dependencies": {
+    "@formwright/contract": "workspace:*",
+    "@formwright/core": "workspace:*",
+    "@formwright/plugins-async": "workspace:*",
+    "@formwright/plugins-basic": "workspace:*",
+    "@formwright/react-rhf": "workspace:*",
+    "@formwright/renderers-default": "workspace:*",
+    "@formwright/schema-builder": "workspace:*",
+    "@hookform/resolvers": "^3.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4"
+  }
+}
