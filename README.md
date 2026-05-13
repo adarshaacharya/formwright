@@ -170,6 +170,57 @@ Install whichever UI packages you use:
 npm install @radix-ui/react-select
 ```
 
+## Validation
+
+Formwright supports two validation patterns:
+
+- schema-driven field rules mapped to React Hook Form rules
+- custom resolvers (for example Zod/Yup) for advanced and cross-field validation
+
+### Option 1: Schema rules -> RHF rules
+
+```tsx
+import { toRHFValidationRules } from "formwright/react";
+
+// Inside a custom renderer where `field` is available:
+const rules = toRHFValidationRules(field.definition, field.required);
+```
+
+Use this when your field schema contains constraints and you want standard RHF behavior without a custom resolver.
+
+### Option 2: Custom resolver (Zod example)
+
+```tsx
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+
+const schema = z
+  .object({
+    email: z.string().email("Enter a valid email"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });
+
+export function SignupForm({ runtime }: { runtime: any }) {
+  return (
+    <FormRuntimeProvider runtime={runtime} validationResolver={zodResolver(schema)}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+Install resolver dependencies:
+
+```bash
+npm install zod @hookform/resolvers
+```
+
 ## Peer Dependencies
 
 `formwright/react` expects:
