@@ -245,6 +245,7 @@ function makeNestedLayoutForm(): FormDefinition {
   };
 }
 
+
 function makePluginValidationForm(): FormDefinition {
   return {
     version: "1.0",
@@ -347,6 +348,7 @@ function UnrelatedSetter(): React.JSX.Element {
     </button>
   );
 }
+
 
 const CustomCountryRenderer: FieldRendererComponent = ({
   field,
@@ -576,6 +578,21 @@ describe("@formwright/react-rhf adapter", () => {
     expect(screen.getByRole("textbox")).not.toBeNull();
   });
 
+  it("renders nested layout nodes under a root section id", async () => {
+    const runtime = createFormRuntime({
+      form: makeNestedLayoutForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="root" />
+      </FormRuntimeProvider>,
+    );
+
+    expect(screen.getByRole("textbox")).not.toBeNull();
+  });
+
   it("runs validator plugins selected by serverValidation rules", async () => {
     const noBlockedUsernamePlugin: FormPlugin = {
       kind: "validator",
@@ -643,4 +660,5 @@ describe("@formwright/react-rhf adapter", () => {
       expect(screen.getByTestId("custom-array-item-contacts.0.name")).not.toBeNull();
     });
   });
+
 });

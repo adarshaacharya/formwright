@@ -83,7 +83,6 @@ export function FormRuntimeProvider({
     }),
     [derivedEvaluation, values],
   );
-
   useEffect(() => {
     for (const mutation of evaluation.valueMutations ?? []) {
       const currentValue = form.getValues(mutation.path);

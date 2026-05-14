@@ -215,4 +215,27 @@ describe("createFormRuntime", () => {
     expect(runtime.getResolvedFields()["company.name"].rendererKey).toBe("custom-text-renderer");
     expect(runtime.evaluate().values["company.name"]).toBe("plugin-default");
   });
+
+  it("applies rule effects in declaration order when multiple rules target the same field", () => {
+    const form = makeForm({
+      behaviorSchema: {
+        rules: [
+          {
+            id: "disable-company-name",
+            when: { eq: [{ var: "accountType" }, "company"] },
+            effects: [{ type: "disable", target: "company.name" }],
+          },
+          {
+            id: "enable-company-name-later",
+            when: { eq: [{ var: "accountType" }, "company"] },
+            effects: [{ type: "enable", target: "company.name" }],
+          },
+        ],
+      },
+    });
+
+    const runtime = createFormRuntime({ form });
+    const result = runtime.evaluate({ accountType: "company" });
+    expect(result.fieldState["company.name"].disabled).toBe(false);
+  });
 });
