@@ -64,11 +64,11 @@ const config: Config = {
           items: [
             {
               label: 'Introduction',
-              to: '/docs/intro',
+              to: '/docs',
             },
             {
               label: 'Architecture',
-              to: '/docs/architecture/overview',
+              to: '/docs/concepts/mental-model',
             },
           ],
         },
