@@ -1,33 +1,72 @@
 ---
-sidebar_position: 3
+sidebar_position: 1
 ---
 
 # Mental Model
 
-Use this model when integrating Formwright in product code.
+Formwright separates form concerns into three independent layers. Understanding this separation makes it easier to decide where to put custom logic.
 
-## You Provide
+## The three layers
 
-- A `FormDefinition` schema (fields, layout, rules, datasources)
-- Optional plugins for custom semantics
-- Optional custom renderer mappings
+```
+Schema  →  Runtime  →  Renderer
+```
 
-## Formwright Provides
+**Schema** (`formwright/schema`) — a plain data structure that describes your form: which fields exist, how they're laid out, what rules govern their behavior. No React, no side effects.
 
-- Runtime evaluation (`@formwright/core`)
-- React Hook Form integration (`@formwright/react-rhf`)
-- Default renderer maps (`@formwright/renderers-default`)
+**Runtime** (`formwright/core`) — evaluates the schema against current form values and produces derived state: which fields are visible, disabled, required; what their values should be. Also pure and synchronous.
 
-## Decision Guide
+**Renderer** (`formwright/react`) — subscribes to the runtime's derived state via React context and renders UI. This is the only layer with React dependencies.
 
-- Want to change only a label/control wrapper? Use slots.
-- Want custom UI widget with Formwright composition? Use composer renderer.
-- Want full semantic widget replacement? Use renderer map key.
+## What this means in practice
 
-## Package Cheat Sheet
+| I want to... | I change... |
+|---|---|
+| Add a new field or layout section | Schema (`buildForm`) |
+| Add a show/hide rule | Schema (`rules`) |
+| Change how a field type looks | Renderer (custom renderer or slot) |
+| Replace one input with a design-system component | Renderer (`fieldRendererMap`) |
+| Add custom conditional logic | Plugin (operator) |
+| Add a new field effect | Plugin (effect) |
+| Load options from an API | Plugin (datasource) or `registerAsyncPlugins()` |
 
-- `@formwright/contract`: schema types
-- `@formwright/core`: runtime/evaluation
-- `@formwright/react-rhf`: provider + root + hooks
-- `@formwright/plugins-basic`: default operators/effects
-- `@formwright/plugins-async`: async datasource plugins
+## How rendering works
+
+1. `FormRuntimeProvider` watches RHF field values via `watch()`
+2. On each change, calls `runtime.evaluate(values)` — synchronous, pure
+3. Produces a snapshot: `{ fieldState, layoutState, values }`
+4. Passes snapshot to all children via React context
+5. `FormRuntimeRoot` walks the layout tree and renders each node
+
+Async work (remote data sources) happens in the `useDatasourceOptions` hook — not in `evaluate()`.
+
+## Import paths
+
+Formwright is published as a single `formwright` package with sub-path exports:
+
+```ts
+import { buildForm, field, layout } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins, registerAsyncPlugins } from "formwright/plugins";
+```
+
+You can also import from the root:
+
+```ts
+import { buildForm, createFormRuntime, FormRuntimeProvider } from "formwright";
+```
+
+## Customization decision guide
+
+| Situation | Approach |
+|---|---|
+| Change label style, error style, or wrapper | `fieldSlots` |
+| Replace one input type with a design system component | `fieldRendererMap` |
+| Build a complex domain widget (date picker, signature pad) | `fieldRendererMap` + `FieldComposer` |
+| Replace a layout node's rendering | `layoutRendererMap` |
+| Add new conditional operators (fuzzy match, date comparison) | Custom operator plugin |
+| Add new field effects | Custom effect plugin |
+| Add a new field type | Custom field plugin |
+
+See [Customization](../guides/customization) for examples of each.

@@ -1,0 +1,268 @@
+---
+sidebar_position: 1
+---
+
+# Schema
+
+The schema defines your form: what fields exist, how they're laid out, how they behave. It's plain TypeScript — no React, no side effects.
+
+```ts
+import { defineForm, field, layout, rule, datasource, buildForm } from "formwright/schema";
+```
+
+## Fields
+
+### Text fields
+
+```ts
+field.text("firstName", { label: "First name", required: true })
+field.email("contactEmail", { label: "Email" })
+field.password("password", { label: "Password", minLength: 8 })
+field.url("website", { label: "Website" })
+field.tel("phone", { label: "Phone number" })
+```
+
+### Numeric fields
+
+```ts
+field.number("price", { label: "Price", minimum: 0 })
+field.integer("quantity", { label: "Quantity", minimum: 1, maximum: 999 })
+```
+
+### Boolean
+
+```ts
+field.boolean("agreeToTerms", { label: "I agree to the terms" })
+```
+
+### Select (single-choice)
+
+```ts
+// Inline options:
+field.select("country", {
+  label: "Country",
+  options: [
+    { value: "us", label: "United States" },
+    { value: "ca", label: "Canada" },
+    { value: "gb", label: "United Kingdom" },
+  ],
+})
+
+// Options from a datasource (loaded at runtime):
+field.select("role", {
+  label: "Role",
+  dataSource: "roles",   // matches a datasource name in buildForm
+})
+```
+
+### Date and time
+
+```ts
+field.date("birthday", { label: "Date of birth" })
+field.datetime("scheduledAt", { label: "Scheduled time" })
+```
+
+### File upload
+
+```ts
+field.file("attachment", { label: "Attachment" })
+```
+
+### Nested object
+
+```ts
+field.object("address", {
+  label: "Address",
+  item: {
+    fields: {
+      street: field.text("street", { label: "Street" }).data,
+      city:   field.text("city",   { label: "City" }).data,
+      zip:    field.text("zip",    { label: "ZIP" }).data,
+    },
+  },
+})
+```
+
+Object fields use dot-notation paths: `address.city`, `address.zip`.
+
+### Array
+
+```ts
+field.array("lineItems", {
+  label: "Line items",
+  item: {
+    type: "object",
+    fields: {
+      name:  field.text("name",  { label: "Item name" }).data,
+      qty:   field.integer("qty", { label: "Qty", minimum: 1 }).data,
+      price: field.number("price", { label: "Price" }).data,
+    },
+  },
+  minItems: 1,
+  maxItems: 20,
+})
+```
+
+Array item values use indexed paths: `lineItems.0.name`, `lineItems.1.price`.
+
+### Common field options
+
+All field helpers accept:
+
+| Option | Type | Description |
+|---|---|---|
+| `label` | `string` | Display label |
+| `description` | `string` | Short description below label |
+| `helpText` | `string` | Expandable help or tooltip text |
+| `placeholder` | `string` | Input placeholder text |
+| `required` | `boolean` | Initial required state (can be overridden by rules) |
+| `default` | `T` | Default value |
+| `renderer` | `string` | Override the renderer key for this field |
+| `componentProps` | `object` | Forwarded to the renderer component |
+
+## Layout
+
+Layout nodes build the visual structure. All container nodes accept an optional `{ title, description, visibleWhen }` config.
+
+### Stack
+
+Vertical list of nodes.
+
+```ts
+layout.stack("root", [
+  layout.field(nameField),
+  layout.field(emailField),
+])
+```
+
+### Grid
+
+Multi-column layout. Children can specify a `span`.
+
+```ts
+layout.grid("name-grid", { columns: 2 }, [
+  layout.field(firstNameField, { span: 1 }),
+  layout.field(lastNameField,  { span: 1 }),
+  layout.field(emailField,     { span: 2 }),
+])
+```
+
+### Section
+
+Named group with a title and border.
+
+```ts
+layout.section("billing-section", [
+  layout.field(cardNumberField),
+  layout.field(expiryField),
+], { title: "Billing details" })
+```
+
+### Tabs
+
+```ts
+layout.tabs("form-tabs", [
+  {
+    key: "personal",
+    label: "Personal",
+    content: layout.stack("personal-stack", [layout.field(nameField)]),
+  },
+  {
+    key: "account",
+    label: "Account",
+    content: layout.stack("account-stack", [layout.field(emailField)]),
+  },
+])
+```
+
+### Stepper
+
+```ts
+layout.stepper("checkout", [
+  {
+    key: "shipping",
+    label: "Shipping",
+    content: layout.stack("shipping-step", [layout.field(addressField)]),
+  },
+  {
+    key: "payment",
+    label: "Payment",
+    content: layout.stack("payment-step", [layout.field(cardField)]),
+  },
+])
+```
+
+### Divider
+
+```ts
+layout.divider("section-divider")
+```
+
+## Rules
+
+Rules define conditional behavior. See [Conditional Fields](./conditional-fields) for full examples.
+
+```ts
+import { rule, fieldRef, contextRef } from "formwright/schema";
+
+// Show a field when another field equals a value:
+rule.when(fieldRef(accountType).eq("company")).show(companyName)
+
+// Require a field conditionally:
+rule.when(fieldRef(accountType).eq("company")).require(companyName)
+
+// Use context values (passed to createFormRuntime):
+rule.when(contextRef("mode").eq("view")).disable(editableField)
+
+// Compound conditions:
+rule.when({ and: [fieldRef(a).eq("x"), fieldRef(b).gt(5)] }).show(targetField)
+```
+
+## Data sources
+
+Data sources provide options for `field.select` fields.
+
+```ts
+import { datasource } from "formwright/schema";
+
+// Static options:
+datasource.static("roles", [
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "Member" },
+])
+
+// Remote API (requires registerAsyncPlugins()):
+datasource.remote("countries", {
+  endpoint: "/api/countries",
+  method: "GET",
+  labelKey: "name",
+  valueKey: "code",
+})
+```
+
+See [Data Sources](./data-sources) for async loading, dependent fields, and custom plugins.
+
+## `buildForm`
+
+Assembles everything into a `FormDefinition`:
+
+```ts
+const form = buildForm({
+  form: defineForm({ id: "checkout" }),
+  fields: [accountType, companyName, emailField],
+  layout: layout.stack("root", [
+    layout.field(accountType),
+    layout.field(companyName),
+    layout.field(emailField),
+  ]),
+  rules: [
+    rule.when(fieldRef(accountType).eq("company")).show(companyName),
+    rule.when(fieldRef(accountType).neq("company")).hide(companyName),
+  ],
+  datasources: [
+    datasource.static("roles", rolesOptions),
+  ],
+});
+```
+
+Pass the result to `createFormRuntime`.

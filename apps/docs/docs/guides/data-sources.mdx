@@ -1,0 +1,201 @@
+---
+sidebar_position: 7
+---
+
+# Data Sources
+
+Data sources provide options for `field.select` fields. They can be static (defined in the schema) or remote (fetched from an API at runtime).
+
+## Static data sources
+
+Define options inline in the schema. No async loading — options are always available immediately.
+
+```ts
+import { datasource, field, buildForm } from "formwright/schema";
+import { registerBasicPlugins } from "formwright/plugins";
+
+const rolesSource = datasource.static("roles", [
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "Member" },
+  { value: "viewer", label: "Viewer" },
+]);
+
+const roleField = field.select("role", {
+  label: "Role",
+  dataSource: "roles",   // matches the datasource name
+});
+
+const form = buildForm({
+  form: defineForm({ id: "invite" }),
+  fields: [roleField],
+  layout: layout.stack("root", [layout.field(roleField)]),
+  datasources: [rolesSource],
+});
+
+// Static datasources need registerAsyncPlugins() to load:
+const runtime = createFormRuntime({
+  form,
+  plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+});
+```
+
+## Remote data sources
+
+Fetch options from an API. Requires `registerAsyncPlugins()`.
+
+```ts
+import { registerAsyncPlugins } from "formwright/plugins";
+
+const countriesSource = datasource.remote("countries", {
+  endpoint: "/api/countries",
+  method: "GET",
+  labelKey: "name",
+  valueKey: "code",
+});
+
+const runtime = createFormRuntime({
+  form,
+  plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+});
+```
+
+Pass a `baseUrl` if your endpoints are relative:
+
+```ts
+registerAsyncPlugins({ baseUrl: "https://api.example.com" })
+```
+
+### Remote datasource with query parameters
+
+Map field values to query parameters using `queryMap`. Use `{{fieldPath}}` template syntax:
+
+```ts
+datasource.remote("cities", {
+  endpoint: "/api/cities",
+  method: "GET",
+  labelKey: "name",
+  valueKey: "id",
+  dependsOn: ["country"],          // re-fetches when country changes
+  queryMap: {
+    country_code: "{{country}}",   // passes current country value as ?country_code=...
+  },
+})
+```
+
+### Remote datasource with POST body
+
+```ts
+datasource.remote("products", {
+  endpoint: "/api/products/search",
+  method: "POST",
+  labelKey: "title",
+  valueKey: "sku",
+  dependsOn: ["category"],
+  bodyMap: {
+    category: "{{category}}",
+  },
+})
+```
+
+## Loading state in custom renderers
+
+When you build a custom renderer for a select field, access the loading state:
+
+```tsx
+import type { FieldRendererComponent } from "formwright/react";
+
+const MySelect: FieldRendererComponent = ({ value, onChange, options, loading, error }) => {
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)}>
+      {(options ?? []).map((opt) => (
+        <option key={String(opt.value)} value={String(opt.value)}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+};
+```
+
+## `useDatasourceOptions` hook
+
+Access options and loading state directly in custom components:
+
+```tsx
+import { useDatasourceOptions } from "formwright/react";
+
+function CountryDropdown({ fieldPath }: { fieldPath: string }) {
+  const { options, loading, error } = useDatasourceOptions(fieldPath);
+
+  if (loading) return <span>Loading...</span>;
+  if (error) return <span>Failed to load options</span>;
+
+  return (
+    <select>
+      {options?.map((opt) => (
+        <option key={String(opt.value)} value={String(opt.value)}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+## Custom datasource plugin
+
+Build a datasource plugin when you need custom fetching logic — authentication headers, GraphQL, SDK calls:
+
+```ts
+import type { DataSourcePlugin } from "formwright/core";
+
+const myApiDatasourcePlugin: DataSourcePlugin = {
+  kind: "datasource",
+  identity: { name: "my-api-datasource", version: "1" },
+  sourceType: "my-api",   // matches datasource definition type
+
+  async load(input) {
+    const source = input.source as { type: "my-api"; resourceType: string };
+
+    const response = await myApiClient.fetch(source.resourceType, {
+      token: input.context.authToken as string,
+    });
+
+    return {
+      options: response.items.map((item) => ({
+        value: item.id,
+        label: item.displayName,
+      })),
+    };
+  },
+};
+
+// Register it alongside the built-in plugins:
+const runtime = createFormRuntime({
+  form,
+  plugins: [
+    ...registerBasicPlugins(),
+    myApiDatasourcePlugin,
+  ],
+});
+```
+
+Define the datasource type in your schema:
+
+```ts
+// Use raw datasource definition for custom source types:
+import { buildForm } from "formwright/schema";
+
+const form = buildForm({
+  // ...
+  datasources: [{
+    name: "products",
+    definition: {
+      type: "my-api",
+      resourceType: "product",
+    },
+  }],
+});
+```

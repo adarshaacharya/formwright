@@ -2,49 +2,47 @@
 sidebar_position: 1
 ---
 
-# Why Formwright Exists
+# Why Formwright
 
-Most teams start forms as local UI code. Over time, forms become hard to maintain because validation, conditional logic, layout, and data loading are scattered across components.
+Most teams start forms as local React component code. It works fine for simple forms. As forms grow more complex — conditional fields, async option loading, multi-step flows, cross-form reuse — that code becomes hard to maintain.
 
-Formwright exists to centralize form behavior in a schema-driven runtime so teams can ship complex forms without turning UI code into business-logic code.
+## The problem with ad-hoc form code
 
-## The Problem
+When form behavior lives in components, you end up with:
 
-Teams usually hit these issues:
+- Conditional rendering logic spread across dozens of `if` statements
+- Validation rules duplicated between server and client
+- No way to reuse form behavior across screens without copying components
+- Custom widgets that are tightly coupled to one form's structure
+- Async option loading implemented differently in every select field
 
-- Conditional logic is duplicated across components.
-- Form behavior is tightly coupled to one UI implementation.
-- Reusing form behavior across projects is difficult.
-- Custom widgets and domain fields require invasive rewrites.
-- Async option loading logic is inconsistent between forms.
+## What Formwright does instead
 
-## What Formwright Solves
+Formwright separates form behavior from rendering:
 
-Formwright separates responsibilities clearly:
+- **Schema** — declaratively describes what the form does: fields, layout, rules, data sources
+- **Runtime** — evaluates the schema at runtime and derives field state (visible, disabled, required, value)
+- **Renderer** — turns runtime state into UI; replaceable without touching logic
+- **Plugins** — extend the engine with custom operators, effects, field types, and data loaders
 
-- Schema defines meaning (`what` the form should do).
-- Runtime evaluates behavior (`when` and `how` logic applies).
-- React adapter renders UI (`how` it looks and binds to RHF).
-- Plugins extend semantics (operators, effects, datasources).
+Your business logic lives in the schema and plugins. Your UI lives in renderers. They don't know about each other.
 
-This keeps forms evolvable while preserving product-specific UI flexibility.
+## When to use Formwright
 
-## When to Use Formwright
+Formwright fits best when you have:
 
-Use Formwright when you need:
+- Forms with conditional fields driven by other field values
+- Forms that need to work with your existing design system
+- Multiple forms across your app that share behavior or structure
+- A need to configure form behavior without code changes (schema from API, CMS, etc.)
 
-- Dynamic forms with rule-driven behavior.
-- A reusable form runtime across multiple screens/apps.
-- Freedom to customize rendering without rewriting logic.
-- A plugin model for domain-specific behavior.
+## When plain RHF is enough
 
-## When Not to Use It
+If you have a few simple static forms with minimal conditional logic, React Hook Form alone is often enough. Formwright adds value when form behavior complexity justifies a schema layer.
 
-If your app has only a few simple static forms, plain React Hook Form without a schema runtime is often enough.
+## Design priorities
 
-## Design Principles
-
-- Headless runtime first, UI second.
-- Public API boundaries by package entrypoints.
-- Extensibility via plugins, not ad-hoc conditionals.
-- Developer ergonomics through practical guides and copy-paste examples.
+- **Headless runtime** — the engine has no UI opinions; you bring your own components
+- **Extensibility via plugins** — new behavior goes into plugins, not into the engine's core
+- **RHF compatibility** — built on top of React Hook Form; all RHF features still work
+- **TypeScript throughout** — schema, runtime state, renderer props, and plugin interfaces are all fully typed

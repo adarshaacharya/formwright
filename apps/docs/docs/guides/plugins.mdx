@@ -1,0 +1,148 @@
+---
+sidebar_position: 8
+---
+
+# Plugins
+
+Plugins extend the form engine with new field types, operators, effects, validators, and data sources. All built-in behavior is implemented as plugins.
+
+## Built-in plugins
+
+```ts
+import { registerBasicPlugins, registerAsyncPlugins } from "formwright/plugins";
+
+const runtime = createFormRuntime({
+  form,
+  plugins: [
+    ...registerBasicPlugins(),    // operators (eq, gt, in, ...) + effects (show, hide, require, ...)
+    ...registerAsyncPlugins(),    // static + remote datasource loaders
+  ],
+});
+```
+
+You can also pass `registerAsyncPlugins({ baseUrl: "https://api.example.com" })` to set a base URL for relative endpoints.
+
+## Plugin kinds
+
+| Kind | Purpose |
+|---|---|
+| `field` | Custom field types with normalization, default values, validation, serialization |
+| `layout` | Custom layout node types |
+| `operator` | New condition operators (`fuzzy`, `startsWith`, `isToday`, ...) |
+| `effect` | New rule effects (`notify`, `setProp`, ...) |
+| `validator` | Custom validation rules |
+| `datasource` | Custom option loaders |
+
+## Writing an operator plugin
+
+Add a new operator for conditions in rules. Example: `startsWith`:
+
+```ts
+import type { OperatorPlugin } from "formwright/core";
+
+const startsWithOperator: OperatorPlugin = {
+  kind: "operator",
+  identity: { name: "startsWith", version: "1" },
+  operatorKey: "startsWith",
+
+  evaluate({ expression, values, context }) {
+    // expression is { startsWith: [{ var: "fieldPath" }, "prefix"] }
+    const [ref, prefix] = expression.startsWith as [{ var: string }, string];
+    const value = values[ref.var];
+    return typeof value === "string" && value.startsWith(prefix);
+  },
+};
+
+const runtime = createFormRuntime({
+  form,
+  plugins: [
+    ...registerBasicPlugins(),
+    startsWithOperator,
+  ],
+});
+```
+
+Use it in schema rules:
+
+```ts
+import type { RuleExpression } from "formwright/schema";
+
+rules: [
+  rule.when({ startsWith: [{ var: "email" }, "admin@"] } as RuleExpression).show(adminPanel),
+]
+```
+
+## Writing an effect plugin
+
+Add a new effect. Example: `setPlaceholder`:
+
+```ts
+import type { EffectPlugin } from "formwright/core";
+
+const setPlaceholderEffect: EffectPlugin = {
+  kind: "effect",
+  identity: { name: "setPlaceholder", version: "1" },
+  effectType: "setPlaceholder",
+
+  apply({ effect, fieldStateMutations }) {
+    // effect is { type: "setPlaceholder", target: "fieldPath", value: "Enter..." }
+    fieldStateMutations.push({
+      path: effect.target as string,
+      mutation: (state) => ({ ...state, placeholder: effect.value }),
+    });
+
+    return { matched: true };
+  },
+};
+```
+
+## Writing a field plugin
+
+Field plugins add new field types with custom normalization, validation, and serialization.
+
+```ts
+import type { FieldPlugin } from "formwright/core";
+
+const phoneFieldPlugin: FieldPlugin = {
+  kind: "field",
+  identity: { name: "phone-field", version: "1" },
+  fieldType: "phone",
+
+  normalize(input) {
+    return {
+      rendererKey: "phone",
+      validationRules: input.definition.required
+        ? [{ type: "required", message: "Phone number is required" }]
+        : [],
+    };
+  },
+
+  getDefaultValue() {
+    return "";
+  },
+
+  getValidationPlan(input) {
+    return input.definition.required
+      ? [{ type: "required", message: "Required" }]
+      : [];
+  },
+
+  serialize(input) {
+    return input.value;
+  },
+
+  deserialize(input) {
+    return input.value;
+  },
+};
+```
+
+Then use `fieldType: "phone"` in your custom field definition.
+
+## Plugin identity
+
+Every plugin requires an `identity` with a `name` and `version`. Two plugins with the same `name` will throw a `DuplicatePluginError`. Use a namespaced name to avoid conflicts:
+
+```ts
+identity: { name: "my-app/phone-field", version: "1" }
+```

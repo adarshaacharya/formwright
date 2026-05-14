@@ -1,65 +1,120 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 ---
 
-# Get Started in 10 Minutes
+# Quick Start
 
-This is the fastest path to render a working Formwright form in React.
-
-## Prerequisites
-
-- React 18+
-- React Hook Form 7+
-- A `FormDefinition` schema
+Get a working form rendering in under 5 minutes.
 
 ## Install
 
 ```bash
-pnpm add @formwright/core @formwright/react-rhf @formwright/plugins-basic @formwright/plugins-async @formwright/renderers-default @formwright/contract react-hook-form
+npm install formwright react-hook-form
 ```
 
-## 1. Create Runtime
+Requires React 18+ and react-hook-form 7.53+.
 
-```ts
-import { createFormRuntime } from "@formwright/core";
-import { registerBasicPlugins } from "@formwright/plugins-basic";
-import { registerAsyncPlugins } from "@formwright/plugins-async";
+## Build your first form
 
-const runtime = createFormRuntime({
-  form,
-  context: { mode: "create" },
-  plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+### 1. Define fields and layout
+
+```ts title="profile-form.ts"
+import { defineForm, field, layout, buildForm } from "formwright/schema";
+
+const nameField = field.text("name", { label: "Name", required: true });
+const emailField = field.email("email", { label: "Email" });
+
+export const form = buildForm({
+  form: defineForm({ id: "profile" }),
+  fields: [nameField, emailField],
+  layout: layout.stack("root", [
+    layout.field(nameField),
+    layout.field(emailField),
+  ]),
 });
 ```
 
-## 2. Render Form
+### 2. Create a runtime
 
-```tsx
-import { FormRuntimeProvider, FormRuntimeRoot } from "@formwright/react-rhf";
-import { createDefaultRendererMaps } from "@formwright/renderers-default";
+```ts title="profile-form.ts"
+import { createFormRuntime } from "formwright/core";
+import { registerBasicPlugins } from "formwright/plugins";
 
-const rendererMaps = createDefaultRendererMaps();
+export const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+});
+```
 
-export function FormPage() {
+Create the runtime **outside React** — once per form definition, not on every render.
+
+### 3. Render it
+
+```tsx title="ProfileForm.tsx"
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { form, runtime } from "./profile-form";
+
+export function ProfileForm() {
   return (
     <FormRuntimeProvider runtime={runtime}>
-      <FormRuntimeRoot
-        rootLayoutId="root-stack"
-        fieldRendererMap={rendererMaps.fieldRendererMap}
-        arrayFieldRendererMap={rendererMaps.arrayFieldRendererMap}
-        layoutRendererMap={rendererMaps.layoutRendererMap}
-      />
+      <FormRuntimeRoot rootLayoutId="root" />
     </FormRuntimeProvider>
   );
 }
 ```
 
-## 3. Add Rules and Datasources
+Formwright renders native HTML inputs by default. No additional setup needed.
 
-Your schema can define conditional behavior and options loading:
+## Handle submit
 
-- `rule.when(...).show(...)`
-- `rule.when(...).hide(...)`
-- `datasource.static(...)` or async datasource plugin
+`FormRuntimeProvider` wraps React Hook Form's `FormProvider`. Access `handleSubmit` from `useFormContext` inside any child component:
 
-See [Guide: Conditional Fields](/docs/guides/conditional-fields) and [Guide: Custom Renderer](/docs/guides/custom-renderer).
+```tsx title="ProfileForm.tsx"
+import { useFormContext } from "react-hook-form";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { runtime } from "./profile-form";
+
+function FormBody() {
+  const { handleSubmit } = useFormContext();
+
+  function onSubmit(values: Record<string, unknown>) {
+    console.log(values);
+    // { name: "Alice", email: "alice@example.com" }
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <FormRuntimeRoot rootLayoutId="root" />
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+
+export function ProfileForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormBody />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## Pre-fill values
+
+Pass `initialValues` for edit forms:
+
+```tsx
+<FormRuntimeProvider
+  runtime={runtime}
+  initialValues={{ name: "Alice", email: "alice@example.com" }}
+>
+  <FormBody />
+</FormRuntimeProvider>
+```
+
+## Next steps
+
+- [Schema](../guides/schema) — all field types, layout, rules, and data sources
+- [Conditional Fields](../guides/conditional-fields) — show/hide fields based on values
+- [Customization](../guides/customization) — plug in your design system
+- [Validation](../guides/validation) — schema rules, Zod, cross-field validation

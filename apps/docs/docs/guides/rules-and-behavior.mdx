@@ -1,0 +1,154 @@
+---
+sidebar_position: 6
+---
+
+# Rules & Behavior
+
+Rules express conditional behavior in the schema. They run synchronously on every value change, before React renders.
+
+## How rules work
+
+Each rule has:
+
+1. `when` — a condition expression (evaluated against current field values + context)
+2. one or more effects — what happens when the condition is true
+
+Rules are evaluated by `runtime.evaluate()`, which runs inside `FormRuntimeProvider` on every RHF value change.
+
+## Writing rules
+
+```ts
+import { rule, fieldRef, contextRef } from "formwright/schema";
+```
+
+### `rule.when(expression)`
+
+Returns a builder with effect methods. Chain one effect method to complete the rule.
+
+```ts
+rule.when(fieldRef("accountType").eq("company")).show("companyName")
+rule.when(fieldRef("status").eq("locked")).disable("editableField")
+rule.when(fieldRef("hasShipping").eq(true)).require("shippingAddress")
+rule.when(fieldRef("country").eq("us")).setValue("currency", "USD")
+rule.when(fieldRef("promoCode").exists()).clearValue("discount")
+```
+
+### `fieldRef(field)`
+
+References a field value in an expression. Accepts a `BuiltField` object or a path string.
+
+```ts
+fieldRef(myField)          // BuiltField object
+fieldRef("address.city")   // dot-notation path string
+```
+
+### `contextRef(name)`
+
+References a value from the `context` object passed to `createFormRuntime`.
+
+```ts
+const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+  context: { mode: "view", userRole: "admin" },
+});
+
+// In rules:
+rule.when(contextRef("mode").eq("view")).disable(nameField)
+rule.when(contextRef("userRole").neq("admin")).hide(adminPanel)
+```
+
+## Operators
+
+Comparison operators are available on `fieldRef()` and `contextRef()` return values.
+
+| Method | Expression | Example |
+|---|---|---|
+| `.eq(value)` | Equals | `fieldRef(f).eq("active")` |
+| `.neq(value)` | Not equals | `fieldRef(f).neq("deleted")` |
+| `.gt(value)` | Greater than | `fieldRef(f).gt(0)` |
+| `.gte(value)` | Greater than or equal | `fieldRef(f).gte(18)` |
+| `.lt(value)` | Less than | `fieldRef(f).lt(100)` |
+| `.lte(value)` | Less than or equal | `fieldRef(f).lte(999)` |
+| `.in([...])` | Value is in list | `fieldRef(f).in(["a", "b"])` |
+| `.exists()` | Non-empty value | `fieldRef(f).exists()` |
+
+## Compound conditions
+
+Combine multiple conditions with `and`, `or`, and `not`:
+
+```ts
+import type { RuleExpression } from "formwright/schema";
+
+// Both conditions must be true:
+const condition: RuleExpression = {
+  and: [
+    fieldRef(accountType).eq("company"),
+    fieldRef(employeeCount).gt(50),
+  ],
+};
+
+// Either condition must be true:
+const condition: RuleExpression = {
+  or: [
+    fieldRef(plan).eq("pro"),
+    fieldRef(plan).eq("enterprise"),
+  ],
+};
+
+// Negate a condition:
+const condition: RuleExpression = {
+  not: fieldRef(status).eq("active"),
+};
+
+rule.when(condition).show(upgradePrompt)
+```
+
+## Effects
+
+Effects are the actions a rule applies when its condition is true.
+
+| Effect | Method | Description |
+|---|---|---|
+| `show` | `.show(target)` | Make field visible |
+| `hide` | `.hide(target)` | Hide field |
+| `enable` | `.enable(target)` | Enable a disabled field |
+| `disable` | `.disable(target)` | Disable a field |
+| `require` | `.require(target, true)` | Mark field as required |
+| `un-require` | `.require(target, false)` | Remove required state |
+| `setValue` | `.setValue(target, value)` | Set a field's value |
+| `clearValue` | `.clearValue(target)` | Clear a field's value |
+| `disableAll` | `.disableAll()` | Disable all fields (view mode) |
+
+### Setting values from rules
+
+```ts
+// Auto-set currency when country changes:
+rule.when(fieldRef("country").eq("us")).setValue("currency", "USD"),
+rule.when(fieldRef("country").eq("gb")).setValue("currency", "GBP"),
+```
+
+### View mode pattern
+
+Disable all fields when the form is in view mode:
+
+```ts
+const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+  context: { mode: "view" },
+});
+
+// In schema:
+rules: [
+  rule.when(contextRef("mode").eq("view")).disableAll(),
+]
+```
+
+## Multiple rules, same target
+
+Multiple rules can target the same field. The last matching rule wins for each effect type. Design your rules so they don't produce conflicting states (e.g., one rule shows a field while another hides it simultaneously based on the same condition).
+
+## Rule evaluation order
+
+Rules are evaluated in the order they appear in the `rules` array. For the same effect type on the same field, the last matching rule takes precedence.

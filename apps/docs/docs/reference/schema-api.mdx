@@ -1,0 +1,216 @@
+---
+sidebar_position: 1
+---
+
+# Schema API
+
+```ts
+import { defineForm, field, layout, rule, fieldRef, contextRef, datasource, buildForm } from "formwright/schema";
+```
+
+## `defineForm({ id })`
+
+Creates a form descriptor. `id` must be unique across your application.
+
+```ts
+const myForm = defineForm({ id: "checkout-form" });
+```
+
+## `field`
+
+### Text-based fields
+
+| Method | Field type | Notes |
+|---|---|---|
+| `field.text(path, options)` | `string` | |
+| `field.email(path, options)` | `string` | Validates email format |
+| `field.password(path, options)` | `string` | |
+| `field.url(path, options)` | `string` | Validates URL format |
+| `field.tel(path, options)` | `string` | |
+
+### Numeric fields
+
+| Method | Field type | Notes |
+|---|---|---|
+| `field.number(path, options)` | `number` | Floating point |
+| `field.integer(path, options)` | `integer` | Whole numbers only |
+
+### Other primitives
+
+| Method | Field type | Notes |
+|---|---|---|
+| `field.boolean(path, options)` | `boolean` | |
+| `field.date(path, options)` | `date` | ISO date string |
+| `field.datetime(path, options)` | `datetime` | ISO datetime string |
+| `field.file(path, options)` | `file` | |
+
+### Composite fields
+
+| Method | Notes |
+|---|---|
+| `field.select(path, options)` | Requires `options` array or `dataSource` name |
+| `field.object(path, options)` | Requires `item.fields` map |
+| `field.array(path, options)` | Requires `item` definition (`type: "primitive"` or `type: "object"`) |
+
+### Field options (common across all types)
+
+```ts
+{
+  label?: string;
+  description?: string;
+  helpText?: string;
+  placeholder?: string;
+  required?: boolean;
+  default?: T;
+  renderer?: string;           // override renderer key
+  componentProps?: object;     // forwarded to renderer
+  wrapperProps?: object;       // forwarded to field shell
+  styleTokens?: Record<string, string | number | boolean>;
+}
+```
+
+### Field-type-specific options
+
+**String fields** (`text`, `email`, `password`, `url`, `tel`):
+
+```ts
+{ minLength?: number; maxLength?: number; pattern?: string }
+```
+
+**Numeric fields** (`number`, `integer`):
+
+```ts
+{ minimum?: number; maximum?: number }
+```
+
+**Select field**:
+
+```ts
+{
+  options?: Array<{ value: string | number | boolean; label: string }>;
+  dataSource?: string;   // datasource name from buildForm datasources array
+}
+```
+
+**Array field**:
+
+```ts
+{
+  item: {
+    type: "primitive";
+    valueType: "string" | "number" | ...;
+  } | {
+    type: "object";
+    fields: Record<string, DataFieldDefinition>;
+  };
+  minItems?: number;
+  maxItems?: number;
+}
+```
+
+## `layout`
+
+### Container nodes
+
+| Method | Signature |
+|---|---|
+| `layout.stack` | `(id, children, options?)` |
+| `layout.section` | `(id, children, options?)` |
+| `layout.grid` | `(id, { columns }, children)` |
+| `layout.tabs` | `(id, TabDefinition[], options?)` |
+| `layout.stepper` | `(id, StepDefinition[], options?)` |
+| `layout.divider` | `(id)` |
+
+### Leaf node
+
+```ts
+layout.field(fieldOrPath, { span?: number })
+```
+
+### Base options (all containers)
+
+```ts
+{
+  title?: string;
+  description?: string;
+  visibleWhen?: RuleExpression;
+  componentProps?: object;
+}
+```
+
+### `TabDefinition`
+
+```ts
+{ key: string; label: string; content: LayoutNode }
+```
+
+### `StepDefinition`
+
+```ts
+{ key: string; label: string; content: LayoutNode }
+```
+
+## `rule`
+
+### `rule.when(expression)`
+
+Returns a `RuleBuilder` with these effect methods:
+
+| Method | Effect |
+|---|---|
+| `.show(target)` | Make field visible |
+| `.hide(target)` | Hide field |
+| `.enable(target)` | Enable field |
+| `.disable(target)` | Disable field |
+| `.require(target, value?)` | Set required state (default `true`) |
+| `.setValue(target, value)` | Set field value |
+| `.clearValue(target)` | Clear field value |
+| `.disableAll()` | Disable all fields |
+
+`target` accepts a `BuiltField` object or a dot-notation path string.
+
+## `fieldRef(fieldOrPath)`
+
+Creates a reference to a field value for use in rule expressions.
+
+```ts
+fieldRef(myField)         // BuiltField object
+fieldRef("address.city")  // path string
+```
+
+Returns a `RuleReference` with comparison methods:
+
+```ts
+.eq(value)    .neq(value)   .gt(value)   .gte(value)
+.lt(value)    .lte(value)   .in(values)  .exists()
+```
+
+## `contextRef(name)`
+
+Creates a reference to a value in the runtime context.
+
+```ts
+contextRef("mode").eq("view")
+contextRef("userRole").in(["admin", "superadmin"])
+```
+
+## `datasource`
+
+| Method | Signature |
+|---|---|
+| `datasource.static` | `(name, options[])` |
+| `datasource.remote` | `(name, { endpoint, method, labelKey, valueKey, dependsOn?, queryMap?, bodyMap? })` |
+
+## `buildForm(input)`
+
+```ts
+buildForm({
+  form: FormDraft;                    // from defineForm()
+  fields: BuiltField[];               // all fields used in the form
+  layout: LayoutNode;                 // root layout node
+  rules?: BuiltRule[];                // behavior rules
+  datasources?: BuiltDataSource[];    // data source definitions
+  computed?: ComputedFieldDefinition[];
+  lifecycle?: LifecycleDefinition;
+}): FormDefinition
+```

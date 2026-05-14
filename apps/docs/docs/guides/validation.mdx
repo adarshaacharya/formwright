@@ -1,0 +1,144 @@
+---
+sidebar_position: 4
+---
+
+# Validation
+
+Formwright supports two validation patterns: schema-driven field rules that map to React Hook Form, and custom resolvers (Zod, Yup, or any RHF-compatible resolver).
+
+## Schema-driven validation
+
+Define constraints directly on fields when you build the schema:
+
+```ts
+import { field } from "formwright/schema";
+
+const email = field.email("email", {
+  label: "Email",
+  required: true,
+});
+
+const password = field.text("password", {
+  label: "Password",
+  required: true,
+  minLength: 8,
+  maxLength: 64,
+});
+
+const age = field.integer("age", {
+  label: "Age",
+  minimum: 18,
+  maximum: 120,
+});
+
+const website = field.url("website", {
+  label: "Website",
+  pattern: "^https://",
+});
+```
+
+Formwright maps these constraints to React Hook Form validation rules automatically. Errors appear in the field's `error` prop.
+
+### Using schema rules to require fields conditionally
+
+Combine schema constraints with behavior rules for conditional validation:
+
+```ts
+import { rule, fieldRef } from "formwright/schema";
+
+rules: [
+  // Required only when accountType is "company"
+  rule.when(fieldRef(accountType).eq("company")).require(companyName),
+]
+```
+
+This updates the field's `required` state at runtime — no custom validator needed.
+
+## Custom resolver (Zod)
+
+For cross-field validation, complex constraints, or server-error mapping, pass a custom resolver to `FormRuntimeProvider`:
+
+```tsx
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+
+const schema = z
+  .object({
+    email: z.string().email("Enter a valid email"),
+    password: z.string().min(8, "At least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine(
+    (values) => values.password === values.confirmPassword,
+    { path: ["confirmPassword"], message: "Passwords do not match" }
+  );
+
+export function SignupForm({ runtime }: { runtime: FormRuntime }) {
+  return (
+    <FormRuntimeProvider runtime={runtime} validationResolver={zodResolver(schema)}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+Install the resolver:
+
+```bash
+npm install zod @hookform/resolvers
+```
+
+## Custom resolver (Yup)
+
+```tsx
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
+
+const schema = yup.object({
+  email: yup.string().email("Invalid email").required("Required"),
+  age: yup.number().min(18, "Must be 18+").required("Required"),
+});
+
+<FormRuntimeProvider runtime={runtime} validationResolver={yupResolver(schema)}>
+```
+
+## Wire errors in custom renderers
+
+When you write a custom `FieldRendererComponent`, always render the `error` prop so validation feedback reaches the user:
+
+```tsx
+import type { FieldRendererComponent } from "formwright/react";
+
+const MyInput: FieldRendererComponent = ({ value, onChange, onBlur, error }) => (
+  <div>
+    <input
+      value={typeof value === "string" ? value : ""}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      aria-invalid={Boolean(error)}
+    />
+    {error && <p className="text-sm text-red-600">{error}</p>}
+  </div>
+);
+```
+
+## Using `toRHFValidationRules` in custom renderers
+
+If you're building a custom renderer that uses `useController` directly, convert field schema constraints to RHF rules:
+
+```tsx
+import { toRHFValidationRules, useFormField } from "formwright/react";
+import { useController } from "react-hook-form";
+
+function CustomField({ path }: { path: string }) {
+  const { field, state } = useFormField(path);
+  const rules = toRHFValidationRules(field.definition, state.required);
+
+  const { field: controller } = useController({ name: path, rules });
+
+  return <input {...controller} />;
+}
+```
+
+Most custom renderers don't need this — `useFormField` wires RHF automatically.

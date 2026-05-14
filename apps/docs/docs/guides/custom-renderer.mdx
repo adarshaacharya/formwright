@@ -1,15 +1,25 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 ---
 
-# Guide: Add a Custom Renderer
+# Custom Renderers
 
-Use this when a field needs domain-specific UI.
+Build a custom field renderer using `FieldComposer` — Formwright handles the composition shell (label, description, error, help text), you provide the control.
 
-## Step 1: Implement Renderer
+## When to use this
 
-```tsx
-import { FieldComposer, type RenderFieldProps } from "@formwright/react-rhf";
+Use `FieldComposer` when:
+
+- You need a domain-specific widget (country select, color picker, rich text)
+- You want Formwright to manage the label/error/help layout
+- You want your renderer to work cleanly with `fieldSlots`
+
+If you only need to change how the input looks (not the structure), use [slots or fieldRendererMap](./customization) instead.
+
+## Step 1: Implement the renderer
+
+```tsx title="CountrySelectRenderer.tsx"
+import { FieldComposer, type RenderFieldProps } from "formwright/react";
 
 export function CountrySelectRenderer(props: RenderFieldProps) {
   return (
@@ -17,31 +27,103 @@ export function CountrySelectRenderer(props: RenderFieldProps) {
       field={props.field}
       state={props.state}
       label={props.field.uiField?.label ?? props.field.path}
+      description={props.field.uiField?.description}
+      helpText={props.field.uiField?.helpText}
       error={props.error}
     >
       <select
         value={(props.value as string | undefined) ?? ""}
         onChange={(e) => props.onChange(e.target.value)}
-      />
+        onBlur={props.onBlur}
+        disabled={props.state.disabled}
+        aria-invalid={Boolean(props.error)}
+      >
+        {(props.options ?? []).map((opt) => (
+          <option key={String(opt.value)} value={String(opt.value)}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
     </FieldComposer>
   );
 }
 ```
 
-## Step 2: Register in Renderer Map
+### RenderFieldProps reference
+
+| Prop | Type | Description |
+|---|---|---|
+| `field` | `ResolvedFieldModel` | Schema definition + UI metadata |
+| `state` | `DerivedFieldState` | `visible`, `disabled`, `required` |
+| `value` | `unknown` | Current RHF field value |
+| `onChange` | `(value: unknown) => void` | Update field value |
+| `onBlur` | `() => void` | Trigger field blur |
+| `error` | `string \| undefined` | Validation error message |
+| `options` | `SelectOption[]` | Options from datasource (if any) |
+| `loading` | `boolean` | Datasource is loading |
+| `path` | `string` | Field path (dot notation) |
+
+## Step 2: Register in the renderer map
+
+```tsx title="Form.tsx"
+import { FormRuntimeRoot } from "formwright/react";
+import { CountrySelectRenderer } from "./CountrySelectRenderer";
+
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldRendererMap={{
+    "country-select": CountrySelectRenderer,
+  }}
+/>
+```
+
+## Step 3: Set the renderer key on the field
+
+```ts
+const countryField = field.select("country", {
+  label: "Country",
+  renderer: "country-select",   // matches the key in fieldRendererMap
+  dataSource: "countries",
+});
+```
+
+## Using the default renderer maps as a base
+
+If you want to replace only one or two renderers while keeping the defaults for everything else:
 
 ```tsx
-const fieldRendererMap = {
-  ...rendererMaps.fieldRendererMap,
-  "country-select": CountrySelectRenderer,
+import { createDefaultRendererMaps } from "formwright/react";
+
+const { fieldRendererMap } = createDefaultRendererMaps();
+
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldRendererMap={{
+    ...fieldRendererMap,
+    "country-select": CountrySelectRenderer,
+    "date": MyDatePickerRenderer,
+  }}
+/>
+```
+
+## Full replacement (no FieldComposer)
+
+For complete control over rendering — label, error, wrapper and all:
+
+```tsx
+import type { FieldRendererComponent } from "formwright/react";
+
+const SignaturePad: FieldRendererComponent = ({ value, onChange, error, state }) => {
+  return (
+    <div className="signature-field">
+      <canvas
+        data-disabled={state.disabled}
+        onMouseUp={() => onChange(captureSignature())}
+      />
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
 };
 ```
 
-## Step 3: Use Renderer Key in UI Schema
-
-Set `renderer: "country-select"` for target field node.
-
-## When to Use Other Approaches
-
-- Use slot override for small visual changes.
-- Use full replacement only when composer path is too limiting.
+Then register it in `fieldRendererMap` the same way.

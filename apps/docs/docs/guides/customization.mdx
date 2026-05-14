@@ -1,0 +1,228 @@
+---
+sidebar_position: 3
+---
+
+# Customization
+
+Formwright renders native HTML inputs by default, but it's designed to work with any component library. There are three ways to bring in your own UI — choose based on how much you want to replace.
+
+## Decision guide
+
+| I want to... | Use |
+|---|---|
+| Restyle labels, errors, or wrappers globally | `fieldSlots` |
+| Replace one input type (all text inputs, all selects) | `fieldRendererMap` |
+| Build a complex domain widget (date picker, signature pad) | `fieldRendererMap` + `FieldComposer` |
+| Restyle array field shells and buttons | `arraySlots` |
+| Replace a layout container (grid, section) | `layoutRendererMap` |
+
+## Option 1: Slots
+
+Slots replace individual pieces of the field composition shell. Use this for global theming — when you want the structure to stay the same but the styles to change.
+
+Available field slots: `Shell`, `Label`, `Description`, `Control`, `Error`, `Help`
+
+```tsx
+import { FormRuntimeRoot } from "formwright/react";
+
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldSlots={{
+    Label: ({ label, state }) => (
+      <label className={`text-sm font-medium ${state.required ? "after:content-['*']" : ""}`}>
+        {label}
+      </label>
+    ),
+    Error: ({ error }) =>
+      error ? <p className="text-sm text-red-600 mt-1">{error}</p> : null,
+    Help: ({ helpText }) =>
+      helpText ? <p className="text-xs text-gray-500">{helpText}</p> : null,
+  }}
+/>
+```
+
+The `Control` slot wraps the entire input area. Use it to add wrappers or global input styles without replacing the input itself:
+
+```tsx
+fieldSlots={{
+  Control: ({ defaultControl, error }) => (
+    <div className={`relative ${error ? "ring-1 ring-red-500 rounded" : ""}`}>
+      {defaultControl}
+    </div>
+  ),
+}}
+```
+
+## Option 2: Renderer map
+
+Replace an entire field type with your own component. Use this when you want shadcn/ui, Radix, or any other component instead of the default input.
+
+```tsx
+import { FormRuntimeRoot, type FieldRendererComponent } from "formwright/react";
+import { Input } from "@/components/ui/input";
+
+const ShadcnInput: FieldRendererComponent = ({ value, onChange, onBlur, error, state }) => (
+  <div className="space-y-1">
+    <Input
+      value={typeof value === "string" ? value : ""}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      disabled={state.disabled}
+      aria-invalid={Boolean(error)}
+    />
+    {error && <p className="text-sm text-destructive">{error}</p>}
+  </div>
+);
+
+// Apply to all text and email fields:
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldRendererMap={{
+    text: ShadcnInput,
+    email: ShadcnInput,
+    password: ShadcnInput,
+  }}
+/>
+```
+
+### Select with options
+
+```tsx
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { FieldRendererComponent } from "formwright/react";
+
+const ShadcnSelect: FieldRendererComponent = ({ value, onChange, options, error, state }) => (
+  <div className="space-y-1">
+    <Select
+      value={typeof value === "string" ? value : ""}
+      onValueChange={onChange}
+      disabled={state.disabled}
+    >
+      <SelectTrigger aria-invalid={Boolean(error)}>
+        <SelectValue placeholder="Choose..." />
+      </SelectTrigger>
+      <SelectContent>
+        {(options ?? []).map((opt) => (
+          <SelectItem key={String(opt.value)} value={String(opt.value)}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    {error && <p className="text-sm text-destructive">{error}</p>}
+  </div>
+);
+```
+
+### Boolean (switch)
+
+```tsx
+import { Switch } from "@/components/ui/switch";
+import type { FieldRendererComponent } from "formwright/react";
+
+const BooleanSwitch: FieldRendererComponent = ({ value, onChange, state }) => (
+  <Switch
+    checked={Boolean(value)}
+    onCheckedChange={onChange}
+    disabled={state.disabled}
+  />
+);
+```
+
+### Date picker
+
+```tsx
+import type { FieldRendererComponent } from "formwright/react";
+
+const DatePickerField: FieldRendererComponent = ({ value, onChange, error }) => {
+  const date = typeof value === "string" && value ? new Date(value) : undefined;
+
+  return (
+    <div className="space-y-1">
+      <MyDatePicker
+        selected={date}
+        onSelect={(d) => onChange(d ? d.toISOString().slice(0, 10) : "")}
+      />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+};
+```
+
+## Option 3: Mix slots and renderer map
+
+Use slots for global structure (label style, error style) and `fieldRendererMap` only for fields that need a custom component:
+
+```tsx
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldSlots={{
+    Label: ({ label }) => <label className="text-sm font-medium">{label}</label>,
+    Error: ({ error }) => error ? <p className="text-sm text-destructive">{error}</p> : null,
+  }}
+  fieldRendererMap={{
+    select: ShadcnSelect,
+    date: DatePickerField,
+    boolean: BooleanSwitch,
+  }}
+/>
+```
+
+## `FieldRendererComponent` props
+
+Every component registered in `fieldRendererMap` receives:
+
+| Prop | Type | Description |
+|---|---|---|
+| `value` | `unknown` | Current field value |
+| `onChange` | `(v: unknown) => void` | Update value |
+| `onBlur` | `() => void` | Trigger blur/validation |
+| `error` | `string \| undefined` | Validation error message |
+| `state` | `DerivedFieldState` | `visible`, `disabled`, `required` |
+| `field` | `ResolvedFieldModel` | Schema + UI metadata |
+| `options` | `SelectOption[]` | Options from datasource (selects) |
+| `loading` | `boolean` | Datasource is loading |
+| `path` | `string` | Field path (dot notation) |
+
+## Array slots
+
+Customize array field chrome (add/remove buttons, item shells):
+
+```tsx
+<FormRuntimeRoot
+  rootLayoutId="root"
+  arraySlots={{
+    ItemShell: ({ children, index }) => (
+      <div className="rounded border p-4 mb-2">
+        <span className="text-xs text-gray-500 mb-2 block">Item {index + 1}</span>
+        {children}
+      </div>
+    ),
+    Actions: ({ action, defaultAction }) => (
+      <div className="mt-2">{defaultAction}</div>
+    ),
+  }}
+/>
+```
+
+## Layout renderer map
+
+Replace how a layout container type renders:
+
+```tsx
+import type { LayoutRendererComponent } from "formwright/react";
+
+const CardSection: LayoutRendererComponent = ({ children, layout }) => (
+  <div className="rounded-lg border shadow-sm p-6 mb-4">
+    {layout.title && <h3 className="text-lg font-semibold mb-4">{layout.title}</h3>}
+    {children}
+  </div>
+);
+
+<FormRuntimeRoot
+  rootLayoutId="root"
+  layoutRendererMap={{
+    section: CardSection,
+  }}
+/>
+```

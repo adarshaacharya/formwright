@@ -1,30 +1,75 @@
 ---
-sidebar_position: 1
+sidebar_position: 0
+slug: /
 ---
 
-# Formwright Docs
+# Formwright
 
-Developer-first documentation for building forms with Formwright.
+**Schema-driven form engine for React.** Define your form once as a schema — Formwright handles conditional logic, layout, validation, and data sources at runtime.
 
-## Start Here
+```bash
+npm install formwright react-hook-form
+```
 
-1. [Why Formwright Exists](/docs/introduction/why-formwright)
-2. [Get Started in 10 Minutes](/docs/quickstart/getting-started)
-3. [Common Use Cases](/docs/guides/common-use-cases)
-4. [Core Concepts](/docs/concepts/mental-model)
-5. [API Reference](/docs/reference/core-api)
+## What it does
 
-## What You Can Build
+You define fields, layout, and rules declaratively. At runtime, Formwright evaluates those rules against current form values and keeps field visibility, required state, and disabled state in sync automatically — without you writing any conditional rendering code.
 
-- Dynamic forms with conditional fields
-- Schema-driven UIs using React Hook Form
-- Custom renderers for domain components
-- Async option loading with datasource plugins
+```tsx
+import { defineForm, field, layout, rule, fieldRef, buildForm } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
 
-## Where to Find Things
+const form = buildForm({
+  form: defineForm({ id: "contact" }),
+  fields: [
+    field.select("type", { label: "Contact type", options: [
+      { value: "individual", label: "Individual" },
+      { value: "company", label: "Company" },
+    ]}),
+    field.text("name", { label: "Full name", required: true }),
+    field.text("companyName", { label: "Company name" }),
+  ],
+  layout: layout.stack("root", [
+    layout.field("type"),
+    layout.field("name"),
+    layout.field("companyName"),
+  ]),
+  rules: [
+    rule.when(fieldRef("type").eq("company")).show("companyName"),
+    rule.when(fieldRef("type").eq("individual")).hide("companyName"),
+  ],
+});
 
-- Introduction: problem, solution, and fit
-- Quickstart: minimal setup and first render
-- Guides: task-based integration steps
-- Reference: public APIs only
-- Glossary: team-facing terms (`runtime`, `adapter`, `monorepo`)
+const runtime = createFormRuntime({ form, plugins: registerBasicPlugins() });
+
+export function ContactForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## Key capabilities
+
+- **Conditional logic** — show/hide, enable/disable, require fields based on other field values or runtime context
+- **Bring your own UI** — plug in shadcn/ui, Radix, or any component library via renderer maps and slots
+- **Validation** — schema-driven RHF rules or custom resolvers (Zod, Yup)
+- **Data sources** — static inline options or async remote APIs with loading state
+- **Plugin system** — extend with custom field types, operators, effects, and data sources
+- **TypeScript-first** — fully typed schema, runtime, and renderer APIs
+
+## Start here
+
+| I want to... | Go to |
+|---|---|
+| Get a form rendering in 5 minutes | [Quick Start](./quickstart/getting-started) |
+| Understand how it works | [Mental Model](./concepts/mental-model) |
+| Add conditional field logic | [Conditional Fields](./guides/conditional-fields) |
+| Use my design system components | [Customization](./guides/customization) |
+| Add Zod validation | [Validation](./guides/validation) |
+| Load options from an API | [Data Sources](./guides/data-sources) |
+| See the full API | [API Reference](./reference/schema-api) |

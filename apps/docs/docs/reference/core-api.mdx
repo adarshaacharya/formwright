@@ -1,34 +1,86 @@
 ---
-sidebar_position: 5
+sidebar_position: 2
 ---
 
-# API Reference: @formwright/core
-
-Public API comes from `packages/core/src/index.ts`.
-
-## Primary Exports
-
-- `createFormRuntime`
-- `createPluginRegistry`
-- `DuplicatePluginError`
-- `FormRuntime` and related runtime/plugin types
-
-## `createFormRuntime`
+# Core API
 
 ```ts
-createFormRuntime(input: CreateFormRuntimeInput): FormRuntime
+import { createFormRuntime } from "formwright/core";
 ```
 
-Creates a runtime from a form definition, optional runtime context, and optional plugins.
+## `createFormRuntime(input)`
 
-## `FormRuntime`
+Creates the form engine. Call once at module level or in `useCreateFormRuntime` when context depends on React state.
 
-- `getFormDefinition()`
-- `getResolvedFields()`
-- `getResolvedLayout()`
-- `getEvaluationDependencies()`
-- `getRuntimeContext()`
-- `getPluginRegistry()`
-- `evaluate(values?)`
+```ts
+const runtime = createFormRuntime({
+  form,                          // FormDefinition from buildForm()
+  plugins: registerBasicPlugins(),
+  context: { mode: "create" },   // optional — available via contextRef() in rules
+});
+```
 
-For end-to-end usage patterns, see [Quickstart](/docs/quickstart/getting-started) and [Guides](/docs/guides/common-use-cases).
+| Option | Type | Required | Description |
+|---|---|---|---|
+| `form` | `FormDefinition` | Yes | Output of `buildForm()` |
+| `plugins` | `FormPlugin[]` | Yes | Plugin array (field, operator, effect, datasource, ...) |
+| `context` | `Record<string, unknown>` | No | Runtime context, available in rules via `contextRef()` |
+
+### Returns: `FormRuntime`
+
+| Method | Returns | Description |
+|---|---|---|
+| `evaluate(values?)` | `RuntimeEvaluationResult` | Runs all rules against values, returns derived state |
+| `getResolvedFields()` | `ResolvedFieldModel[]` | Normalized field models after field plugins run |
+| `getFormDefinition()` | `FormDefinition` | Original schema |
+| `getResolvedLayout()` | `ResolvedLayoutModel[]` | Normalized layout models |
+| `getEvaluationDependencies()` | `string[]` | Field paths whose changes trigger re-evaluation |
+| `getRuntimeContext()` | `RuntimeContext` | The context passed at creation |
+| `getPluginRegistry()` | `PluginRegistry` | The plugin registry |
+| `getFieldValidationPlan(path)` | `ValidationPlanItem[]` | Validation rules for a field |
+| `serializeFieldValue(path, value)` | `unknown` | Serialize a field value via its field plugin |
+| `deserializeFieldValue(path, value)` | `unknown` | Deserialize a field value via its field plugin |
+
+### `evaluate(values?)`
+
+Returns:
+
+```ts
+{
+  fieldState: Record<string, DerivedFieldState>;
+  layoutState: Record<string, DerivedLayoutState>;
+  values: Record<string, unknown>;
+}
+```
+
+`DerivedFieldState`:
+
+```ts
+{
+  visible: boolean;
+  disabled: boolean;
+  required: boolean;
+}
+```
+
+`DerivedLayoutState`:
+
+```ts
+{
+  visible: boolean;
+}
+```
+
+## `createPluginRegistry()`
+
+Creates a plugin registry manually. Usually not needed — `createFormRuntime` builds one internally.
+
+```ts
+import { createPluginRegistry, DuplicatePluginError } from "formwright/core";
+
+const registry = createPluginRegistry();
+```
+
+## `DuplicatePluginError`
+
+Thrown when two plugins have the same `identity.name`. Catch it during development to identify naming conflicts.

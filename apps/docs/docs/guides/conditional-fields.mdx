@@ -1,30 +1,140 @@
 ---
-sidebar_position: 5
+sidebar_position: 2
 ---
 
-# Guide: Conditional Fields
+# Conditional Fields
 
-This is the most common integration pattern.
+Show, hide, enable, disable, and dynamically require fields based on other field values or runtime context.
 
-## Step 1: Define Trigger Field
+## How it works
 
-Example: `accountType` select with `individual` and `company` values.
+Rules are defined in `buildForm` and evaluated synchronously on every value change. A rule has two parts:
 
-## Step 2: Add Target Field
+- `when` — a condition expression
+- an effect — what happens when the condition is true (`show`, `hide`, `require`, `disable`, etc.)
 
-Example: `company.name` text field.
+## Show/hide a field
 
-## Step 3: Add Rules
+```ts
+import { buildForm, field, layout, rule, fieldRef } from "formwright/schema";
+
+const accountType = field.select("accountType", {
+  label: "Account type",
+  options: [
+    { value: "individual", label: "Individual" },
+    { value: "company", label: "Company" },
+  ],
+});
+
+const companyName = field.text("companyName", { label: "Company name" });
+
+const form = buildForm({
+  form: defineForm({ id: "account" }),
+  fields: [accountType, companyName],
+  layout: layout.stack("root", [
+    layout.field(accountType),
+    layout.field(companyName),
+  ]),
+  rules: [
+    rule.when(fieldRef(accountType).eq("company")).show(companyName),
+    rule.when(fieldRef(accountType).neq("company")).hide(companyName),
+  ],
+});
+```
+
+`companyName` starts hidden. It appears when `accountType` is set to `"company"`.
+
+## Conditionally require a field
 
 ```ts
 rules: [
-  rule.when(fieldRef(accountType).eq("company")).show(companyName),
-  rule.when(fieldRef(accountType).eq("individual")).hide(companyName),
+  rule.when(fieldRef(accountType).eq("company")).require(companyName),
 ]
 ```
 
-## Step 4: Verify
+This marks the field required at runtime. Formwright wires this into React Hook Form validation automatically.
 
-- Change `accountType` in UI
-- Confirm `company.name` visibility toggles
-- Confirm submit payload behavior matches `hiddenFieldPolicy`
+## Disable a field
+
+```ts
+rules: [
+  rule.when(fieldRef(status).eq("locked")).disable(editableField),
+]
+```
+
+## Set a value when a condition is met
+
+```ts
+rules: [
+  rule.when(fieldRef(country).eq("us")).setValue(currency, "USD"),
+]
+```
+
+## Multiple conditions with `and` / `or`
+
+```ts
+import { rule, fieldRef } from "formwright/schema";
+import type { RuleExpression } from "formwright/schema";
+
+const condition: RuleExpression = {
+  and: [
+    fieldRef(accountType).eq("company"),
+    fieldRef(employeeCount).gt(50),
+  ],
+};
+
+rules: [
+  rule.when(condition).show(enterprisePlanField),
+]
+```
+
+## Reference runtime context
+
+Pass arbitrary context to `createFormRuntime` and reference it in rules with `contextRef`:
+
+```ts
+import { contextRef } from "formwright/schema";
+
+const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+  context: { mode: "view" },
+});
+
+// In rules:
+rules: [
+  rule.when(contextRef("mode").eq("view")).disable(editableField),
+]
+```
+
+## What happens to hidden field values
+
+By default, hidden field values are kept in the form state and included in the submit payload. Change this with `hiddenFieldPolicy` on `FormRuntimeProvider`:
+
+```tsx
+// Clear hidden values from the payload:
+<FormRuntimeProvider runtime={runtime} hiddenFieldPolicy="clear">
+
+// Unregister fields from RHF when hidden:
+<FormRuntimeProvider runtime={runtime} hiddenFieldPolicy="unregister">
+
+// Keep hidden values (default):
+<FormRuntimeProvider runtime={runtime} hiddenFieldPolicy="keep">
+```
+
+Choose `"clear"` when hidden fields should not appear in the submit payload. Choose `"keep"` when you need to preserve hidden values (e.g., for re-appearing fields that should retain their last value).
+
+## Available operators
+
+| Operator | Usage |
+|---|---|
+| `.eq(value)` | Equals |
+| `.neq(value)` | Not equals |
+| `.gt(value)` | Greater than |
+| `.gte(value)` | Greater than or equal |
+| `.lt(value)` | Less than |
+| `.lte(value)` | Less than or equal |
+| `.in([values])` | Value is in array |
+| `.exists()` | Field has a non-empty value |
+
+See [Rules & Behavior](./rules-and-behavior) for the full reference.
