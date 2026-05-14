@@ -9,8 +9,8 @@ const config: Config = {
   future: {
     v4: true,
   },
-  url: 'https://formwright.dev',
-  baseUrl: '/',
+  url: 'https://adarshaacharya.github.io',
+  baseUrl: '/formwright/',
   onBrokenLinks: 'throw',
   i18n: {
     defaultLocale: 'en',
