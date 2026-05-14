@@ -4,58 +4,123 @@ import type { ResolvedFieldModel, ResolvedLayoutModel } from "../resolved/types"
 import type { CreateFormRuntimeInput, EffectApplyInput, FormRuntime, OperatorEvaluateInput } from "./types";
 import type { DerivedFieldState, DerivedLayoutState, RuntimeEvaluationResult } from "./types";
 
-function toResolvedFields(form: FormDefinition): Record<FieldPath, ResolvedFieldModel> {
+function normalizeFields(
+  form: FormDefinition,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): Record<FieldPath, ResolvedFieldModel> {
   const resolved: Record<FieldPath, ResolvedFieldModel> = {};
   for (const [path, dataField] of Object.entries(form.dataSchema.fields)) {
-    const uiField = form.uiSchema.nodes[path];
-    const fieldType = uiField?.fieldType ?? dataField.valueType;
-    const rendererKey = uiField?.renderer ?? fieldType;
+    const initialUiField = form.uiSchema.nodes[path];
+    const initialFieldType = initialUiField?.fieldType ?? dataField.valueType;
+    const fieldPlugin = pluginRegistry.findField(initialFieldType);
+    const normalized = fieldPlugin?.normalize
+      ? fieldPlugin.normalize({
+          path,
+          dataField,
+          uiField: initialUiField,
+          context: runtimeContext ?? {},
+        })
+      : undefined;
+    const normalizedDataField = normalized?.normalizedDataField ?? dataField;
+    const normalizedUiField = normalized?.normalizedUiField ?? initialUiField;
+    const fieldType = normalized?.fieldType ?? normalizedUiField?.fieldType ?? normalizedDataField.valueType;
+    const rendererKey = normalizedUiField?.renderer ?? fieldPlugin?.getRendererKey?.({
+      path,
+      uiField: normalizedUiField,
+      context: runtimeContext ?? {},
+    }) ?? fieldType;
 
     resolved[path] = {
       path,
       fieldType,
-      valueType: dataField.valueType,
+      valueType: normalizedDataField.valueType,
       rendererKey,
-      dataField,
-      uiField,
+      dataField: normalizedDataField,
+      uiField: normalizedUiField,
     };
   }
   return resolved;
 }
 
-function toResolvedLayout(node: LayoutNode): ResolvedLayoutModel {
-  if (node.type === "field") {
+function normalizeLayout(
+  node: LayoutNode,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): LayoutNode {
+  const layoutPlugin = pluginRegistry.findLayout(node.type);
+  if (!layoutPlugin) return node;
+
+  const normalized = layoutPlugin.normalize?.({
+    node,
+    context: runtimeContext ?? {},
+  }) ?? node;
+  layoutPlugin.validate?.({
+    node: normalized,
+    context: runtimeContext ?? {},
+  });
+  return normalized;
+}
+
+function toResolvedLayout(
+  node: LayoutNode,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): ResolvedLayoutModel {
+  const normalizedNode = normalizeLayout(node, pluginRegistry, runtimeContext);
+  const layoutPlugin = pluginRegistry.findLayout(normalizedNode.type);
+  const rendererKey = layoutPlugin?.getRendererKey?.({
+    node: normalizedNode,
+    context: runtimeContext ?? {},
+  }) ?? normalizedNode.type;
+
+  if (normalizedNode.type === "field") {
     return {
-      id: node.id,
-      type: node.type,
-      rendererKey: node.type,
-      fieldRef: node.ref,
-      node,
+      id: normalizedNode.id,
+      type: normalizedNode.type,
+      rendererKey,
+      fieldRef: normalizedNode.ref,
+      node: normalizedNode,
     };
   }
 
   const children =
-    "children" in node
-      ? node.children.map(toResolvedLayout)
-      : "tabs" in node
-      ? node.tabs.flatMap((tab) => tab.children.map(toResolvedLayout))
-      : "steps" in node
-      ? node.steps.flatMap((step) => step.children.map(toResolvedLayout))
+    "children" in normalizedNode
+      ? normalizedNode.children.map((child) => toResolvedLayout(child, pluginRegistry, runtimeContext))
+      : "tabs" in normalizedNode
+      ? normalizedNode.tabs.flatMap((tab) =>
+          tab.children.map((child) => toResolvedLayout(child, pluginRegistry, runtimeContext)),
+        )
+      : "steps" in normalizedNode
+      ? normalizedNode.steps.flatMap((step) =>
+          step.children.map((child) => toResolvedLayout(child, pluginRegistry, runtimeContext)),
+        )
       : undefined;
 
   return {
-    id: node.id,
-    type: node.type,
-    rendererKey: node.type,
+    id: normalizedNode.id,
+    type: normalizedNode.type,
+    rendererKey,
     children,
-    node,
+    node: normalizedNode,
   };
 }
 
-function getInitialValues(form: FormDefinition): Record<FieldPath, unknown> {
+function getInitialValues(
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): Record<FieldPath, unknown> {
   const values: Record<FieldPath, unknown> = {};
-  for (const [path, dataField] of Object.entries(form.dataSchema.fields)) {
-    values[path] = dataField.default;
+  for (const [path, fieldModel] of Object.entries(resolvedFields)) {
+    const plugin = pluginRegistry.findField(fieldModel.fieldType);
+    const pluginDefault = plugin?.getDefaultValue?.({
+      path,
+      dataField: fieldModel.dataField,
+      uiField: fieldModel.uiField,
+      context: runtimeContext ?? {},
+    });
+    values[path] = pluginDefault ?? fieldModel.dataField.default;
   }
   return values;
 }
@@ -99,6 +164,42 @@ function collectLayoutState(
   if ("steps" in node) {
     for (const step of node.steps) {
       for (const child of step.children) collectLayoutState(child, layoutState);
+    }
+  }
+}
+
+function applyLayoutVisibilityFromNode(
+  node: LayoutNode,
+  values: Record<string, unknown>,
+  context: Record<string, unknown>,
+  layoutState: Record<string, DerivedLayoutState>,
+  parentVisible = true,
+): void {
+  const ownVisible =
+    "visibleWhen" in node && node.visibleWhen ? Boolean(evalExpr(node.visibleWhen, values, context)) : true;
+  const visible = parentVisible && ownVisible;
+
+  if (node.id && layoutState[node.id]) {
+    layoutState[node.id].visible = visible;
+  }
+
+  if ("children" in node) {
+    for (const child of node.children) {
+      applyLayoutVisibilityFromNode(child, values, context, layoutState, visible);
+    }
+  }
+  if ("tabs" in node) {
+    for (const tab of node.tabs) {
+      for (const child of tab.children) {
+        applyLayoutVisibilityFromNode(child, values, context, layoutState, visible);
+      }
+    }
+  }
+  if ("steps" in node) {
+    for (const step of node.steps) {
+      for (const child of step.children) {
+        applyLayoutVisibilityFromNode(child, values, context, layoutState, visible);
+      }
     }
   }
 }
@@ -321,11 +422,12 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
     featureFlags: input.context?.featureFlags,
     meta: input.context?.meta,
   };
-  const resolvedFields = toResolvedFields(form);
-  const resolvedLayout = toResolvedLayout(form.uiSchema.layout);
-  const evaluationDependencies = collectBehaviorDependencies(form);
   const pluginRegistry = createPluginRegistry();
   pluginRegistry.registerMany(input.plugins ?? []);
+  const resolvedFields = normalizeFields(form, pluginRegistry, runtimeContext);
+  const resolvedLayout = toResolvedLayout(form.uiSchema.layout, pluginRegistry, runtimeContext);
+  const evaluationDependencies = collectBehaviorDependencies(form);
+  const initialValues = getInitialValues(resolvedFields, pluginRegistry, runtimeContext);
 
   return {
     getFormDefinition() {
@@ -350,7 +452,7 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
       const layoutState: Record<string, DerivedLayoutState> = {};
       collectLayoutState(form.uiSchema.layout, layoutState);
       const fieldState = getInitialFieldState(form);
-      const values = { ...getInitialValues(form), ...(runtimeValues ?? {}) };
+      const values = { ...initialValues, ...(runtimeValues ?? {}) };
       const valueMutations: Array<{ path: FieldPath; value: unknown }> = [];
 
       const pushValueMutation = (path: FieldPath, value: unknown) => {
@@ -430,6 +532,13 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
           applyBuiltInEffect(effect, fieldState, layoutState, values);
         }
       }
+
+      applyLayoutVisibilityFromNode(
+        form.uiSchema.layout,
+        values,
+        runtimeContext as Record<string, unknown>,
+        layoutState,
+      );
 
       return {
         fieldState,

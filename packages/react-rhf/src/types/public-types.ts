@@ -148,6 +148,8 @@ export interface RenderArrayProps extends ArrayFieldRendererBaseProps {
   itemSchema?: Record<string, DataFieldDefinition>;
   itemLayout?: string[];
   itemFieldMeta?: Record<string, { label?: string; placeholder?: string; inputType?: string }>;
+  fieldRendererMap?: Record<string, FieldRendererComponent>;
+  fieldSlots?: FieldRendererSlots;
   slots?: ArrayRendererSlots;
 }
 

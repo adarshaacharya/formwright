@@ -76,4 +76,44 @@ describe("@formwright/schema-builder", () => {
       },
     });
   });
+
+  it("builds computed fields and lifecycle definitions when provided", () => {
+    const accountType = field.select("accountType", {
+      label: "Account Type",
+      default: "individual",
+      options: [
+        { label: "Individual", value: "individual" },
+        { label: "Company", value: "company" },
+      ],
+    });
+
+    const form = buildForm({
+      form: defineForm({ id: "behavior-form" }),
+      fields: [accountType],
+      layout: layout.stack("root", [layout.field(accountType)]),
+      computed: [
+        {
+          target: "accountType",
+          expression: { var: "accountType" },
+          runOn: ["accountType"],
+        },
+      ],
+      lifecycle: {
+        onLoad: [{ type: "fetchDataSource", target: "countries" }],
+        onSubmit: [{ type: "submitTo", target: "/api/forms" }],
+      },
+    });
+
+    expect(form.behaviorSchema?.computed).toEqual([
+      {
+        target: "accountType",
+        expression: { var: "accountType" },
+        runOn: ["accountType"],
+      },
+    ]);
+    expect(form.behaviorSchema?.lifecycle).toEqual({
+      onLoad: [{ type: "fetchDataSource", target: "countries" }],
+      onSubmit: [{ type: "submitTo", target: "/api/forms" }],
+    });
+  });
 });

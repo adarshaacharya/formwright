@@ -1,5 +1,6 @@
 import type {
   BehaviorRule,
+  ComputedFieldDefinition,
   DataFieldDefinition,
   DataSourceDefinition,
   FieldLayoutNode,
@@ -12,6 +13,7 @@ import type {
   RuleEffect,
   RuleExpression,
   SelectOption,
+  LifecycleDefinition,
   SectionLayoutNode,
   StackLayoutNode,
   StepperLayoutNode,
@@ -97,6 +99,8 @@ export interface BuildFormInput {
   layout: LayoutNode;
   rules?: BuiltRule[];
   datasources?: BuiltDataSource[];
+  computed?: ComputedFieldDefinition[];
+  lifecycle?: LifecycleDefinition;
 }
 
 export interface RuleReference {

@@ -1,6 +1,16 @@
+import type { ResolvedLayoutModel } from "@formwright/core";
 import { useRuntimeContext } from "../provider/runtime-context";
 import type { UseFormLayoutResult } from "../types/public-types";
 import { useFormRuntime } from "./use-form-runtime";
+
+function findLayoutById(node: ResolvedLayoutModel, id: string): ResolvedLayoutModel | undefined {
+  if (node.id === id) return node;
+  for (const child of node.children ?? []) {
+    const found = findLayoutById(child, id);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export function useFormLayout(id?: string): UseFormLayoutResult {
   const runtime = useFormRuntime();
@@ -11,6 +21,10 @@ export function useFormLayout(id?: string): UseFormLayoutResult {
     return { layout, state: id ? evaluation.layoutState[id] : undefined };
   }
 
-  // Deep lookup can be added once nested layout resolution is implemented.
-  throw new Error(`Layout lookup by id is not implemented for nested layouts: ${id}`);
+  const nested = findLayoutById(layout, id);
+  if (!nested) {
+    throw new Error(`Layout not found in resolved model: ${id}`);
+  }
+
+  return { layout: nested, state: evaluation.layoutState[id] };
 }

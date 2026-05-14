@@ -6,10 +6,10 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "echo \"TODO: build @formwright/renderers-default\"",
-    "dev": "echo \"TODO: dev @formwright/renderers-default\"",
-    "lint": "echo \"TODO: lint @formwright/renderers-default\"",
-    "test": "echo \"TODO: test @formwright/renderers-default\"",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "tsc --noEmit",
+    "test": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist build coverage"
   },
@@ -21,6 +21,6 @@
   "devDependencies": {
     "@types/react": "^18.3.3",
     "react": "^18.3.1",
-    "typescript": "^5.5.4"
+    "typescript": "^6.0.3"
   }
 }

@@ -209,6 +209,115 @@ function makeCustomCountryForm(): FormDefinition {
   };
 }
 
+function makeNestedLayoutForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "nested-layout-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        "company.name": {
+          valueType: "string",
+          default: "",
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        "company.name": {
+          fieldType: "text",
+          label: "Company Name",
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "root",
+        children: [
+          {
+            type: "section",
+            id: "company-section",
+            children: [{ type: "field", ref: "company.name" }],
+          },
+        ],
+      },
+    },
+    behaviorSchema: {},
+  };
+}
+
+function makePluginValidationForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "plugin-validation-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        username: {
+          valueType: "string",
+          default: "",
+          serverValidation: {
+            rules: ["no-blocked-username"],
+          },
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        username: {
+          fieldType: "text",
+          label: "Username",
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "validation-root",
+        children: [{ type: "field", ref: "username" }],
+      },
+    },
+    behaviorSchema: {},
+  };
+}
+
+function makeObjectArrayRendererForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "object-array-renderer-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        contacts: {
+          valueType: "array",
+          itemType: "object",
+          default: [],
+          itemSchema: {
+            name: { valueType: "string", default: "" },
+          },
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        contacts: {
+          fieldType: "array",
+          label: "Contacts",
+          componentProps: {
+            itemLayout: ["name"],
+            itemFields: {
+              name: { label: "Name", inputType: "text" },
+            },
+          },
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "contacts-root",
+        children: [{ type: "field", ref: "contacts" }],
+      },
+    },
+    behaviorSchema: {},
+  };
+}
+
 function createDelayedDatasourcePlugin(): FormPlugin {
   return {
     kind: "datasource",
@@ -292,6 +401,12 @@ describe("@formwright/react-rhf adapter", () => {
     await waitFor(() =>
       expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(""),
     );
+    const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
+    expect(values["company.name"]).toBeUndefined();
+  });
+
+  it("applies clear policy when a field starts hidden", async () => {
+    renderForm("clear");
     const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
     expect(values["company.name"]).toBeUndefined();
   });
@@ -443,6 +558,89 @@ describe("@formwright/react-rhf adapter", () => {
     await waitFor(() => {
       expect(screen.getByTestId("custom-country-renderer")).not.toBeNull();
       expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("NP");
+    });
+  });
+
+  it("renders nested layouts by id", async () => {
+    const runtime = createFormRuntime({
+      form: makeNestedLayoutForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="company-section" />
+      </FormRuntimeProvider>,
+    );
+
+    expect(screen.getByRole("textbox")).not.toBeNull();
+  });
+
+  it("runs validator plugins selected by serverValidation rules", async () => {
+    const noBlockedUsernamePlugin: FormPlugin = {
+      kind: "validator",
+      identity: { name: "@formwright/test/no-blocked-username", version: "0.0.0" },
+      validatorType: "no-blocked-username",
+      supports() {
+        return true;
+      },
+      validate(input) {
+        if (String(input.value ?? "") === "blocked") {
+          return {
+            valid: false,
+            message: "Username is blocked",
+          };
+        }
+        return { valid: true };
+      },
+    };
+    const runtime = createFormRuntime({
+      form: makePluginValidationForm(),
+      plugins: [noBlockedUsernamePlugin],
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="validation-root" />
+      </FormRuntimeProvider>,
+    );
+
+    const input = screen.getByRole("textbox");
+    changeTextInput(input, "blocked");
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText("Username is blocked")).not.toBeNull();
+    });
+  });
+
+  it("uses custom field renderers for object-array item fields", async () => {
+    const runtime = createFormRuntime({
+      form: makeObjectArrayRendererForm(),
+      context: { mode: "create" },
+    });
+    const fieldRendererMap: Record<string, FieldRendererComponent> = {
+      text: ({ path, value, onChange }) => (
+        <div data-testid={`custom-array-item-${path}`}>
+          <input
+            aria-label={path}
+            value={(value as string | undefined) ?? ""}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </div>
+      ),
+    };
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="contacts-root" fieldRendererMap={fieldRendererMap} />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "add item" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("custom-array-item-contacts.0.name")).not.toBeNull();
     });
   });
 });

@@ -59,6 +59,8 @@ function FieldNode({
       <ArrayFieldNode
         path={path}
         field={resolvedField}
+        fieldRendererMap={fieldRendererMap}
+        fieldSlots={fieldSlots}
         arrayFieldRendererMap={arrayFieldRendererMap}
         arraySlots={arraySlots}
       />
@@ -101,11 +103,15 @@ function ScalarFieldNode({
 function ArrayFieldNode({
   path,
   field,
+  fieldRendererMap,
+  fieldSlots,
   arrayFieldRendererMap,
   arraySlots,
 }: {
   path: FieldPath;
   field: ResolvedFieldModel;
+  fieldRendererMap: Record<string, FieldRendererComponent>;
+  fieldSlots?: FieldRendererSlots;
   arrayFieldRendererMap: Record<string, ArrayFieldRendererComponent>;
   arraySlots?: ArrayRendererSlots;
 }): React.JSX.Element | null {
@@ -138,6 +144,8 @@ function ArrayFieldNode({
     itemSchema,
     itemLayout,
     itemFieldMeta: componentProps.itemFields,
+    fieldRendererMap,
+    fieldSlots,
     slots: arraySlots,
   };
 

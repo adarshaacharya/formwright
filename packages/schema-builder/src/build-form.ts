@@ -29,12 +29,14 @@ export function buildForm(input: BuildFormInput): FormDefinition {
       layout: input.layout,
     },
     behaviorSchema:
-      input.rules?.length || input.datasources?.length
+      input.rules?.length || input.datasources?.length || input.computed?.length || input.lifecycle
         ? {
             rules: normalizeRules(input.rules),
             dataSources: input.datasources
               ? Object.fromEntries(input.datasources.map((datasource) => [datasource.name, datasource.definition]))
               : undefined,
+            computed: input.computed,
+            lifecycle: input.lifecycle,
           }
         : undefined,
   };

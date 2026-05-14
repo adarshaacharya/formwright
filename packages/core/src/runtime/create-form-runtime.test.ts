@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FormDefinition } from "@formwright/contract";
 import { createFormRuntime } from "./create-form-runtime";
+import type { FormPlugin } from "./types";
 
 function makeForm(overrides?: Partial<FormDefinition>): FormDefinition {
   return {
@@ -155,5 +156,63 @@ describe("createFormRuntime", () => {
       expect.arrayContaining(["accountType", "company.name"]),
     );
     expect(runtime.getEvaluationDependencies()).not.toContain("$mode");
+  });
+
+  it("evaluates layout visibleWhen expressions during runtime evaluation", () => {
+    const form = makeForm({
+      uiSchema: {
+        ...makeForm().uiSchema,
+        layout: {
+          type: "stack",
+          id: "root",
+          children: [
+            { type: "field", ref: "accountType" },
+            {
+              type: "section",
+              id: "company-section",
+              visibleWhen: { eq: [{ var: "accountType" }, "company"] },
+              children: [{ type: "field", ref: "company.name" }],
+            },
+          ],
+        },
+      },
+    });
+
+    const runtime = createFormRuntime({ form });
+
+    const individual = runtime.evaluate({ accountType: "individual" });
+    expect(individual.layoutState["company-section"]?.visible).toBe(false);
+
+    const company = runtime.evaluate({ accountType: "company" });
+    expect(company.layoutState["company-section"]?.visible).toBe(true);
+  });
+
+  it("applies field plugin normalization, renderer key, and default value", () => {
+    const stringFieldPlugin: FormPlugin = {
+      kind: "field",
+      identity: { name: "@formwright/test/field-string", version: "0.0.0" },
+      fieldType: "text",
+      normalize(input) {
+        return {
+          fieldType: "text",
+          normalizedDataField: { ...input.dataField, default: "normalized-default" },
+          normalizedUiField: { ...input.uiField, fieldType: "text" },
+        };
+      },
+      getRendererKey() {
+        return "custom-text-renderer";
+      },
+      getDefaultValue() {
+        return "plugin-default";
+      },
+    };
+
+    const runtime = createFormRuntime({
+      form: makeForm(),
+      plugins: [stringFieldPlugin],
+    });
+
+    expect(runtime.getResolvedFields()["company.name"].rendererKey).toBe("custom-text-renderer");
+    expect(runtime.evaluate().values["company.name"]).toBe("plugin-default");
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { FieldPath } from "@formwright/contract";
-import { useController, useFormContext } from "react-hook-form";
+import type { ValidatorPlugin } from "@formwright/core";
+import { useController, useFormContext, type RegisterOptions } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 import type { UseFormFieldResult } from "../types/public-types";
 import { toRHFValidationRules } from "../validation/to-rhf-validation-rules";
@@ -27,17 +28,68 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
     () => toRHFValidationRules(field.dataField, state.required),
     [field.dataField, state.required],
   );
+  const pluginValidationRules = useMemo<
+    NonNullable<RegisterOptions<Record<string, unknown>, FieldPath>["validate"]> | undefined
+  >(() => {
+    const enabledRuleTypes = field.dataField.serverValidation?.rules;
+    const validatorPlugins = runtime
+      .getPluginRegistry()
+      .list()
+      .filter((plugin): plugin is ValidatorPlugin => plugin.kind === "validator")
+      .filter((plugin) => {
+        if (enabledRuleTypes && enabledRuleTypes.length > 0) {
+          return enabledRuleTypes.includes(plugin.validatorType);
+        }
+        return plugin.supports({
+          path,
+          dataField: field.dataField,
+          uiField: field.uiField,
+        });
+      });
+
+    if (validatorPlugins.length === 0) return undefined;
+
+    const pluginValidators: NonNullable<
+      RegisterOptions<Record<string, unknown>, FieldPath>["validate"]
+    > = {};
+    for (const plugin of validatorPlugins) {
+      pluginValidators[plugin.validatorType] = (value) => {
+        const result = plugin.validate({
+          path,
+          value,
+          dataField: field.dataField,
+          uiField: field.uiField,
+          values: evaluation.values,
+          context: runtime.getRuntimeContext(),
+        });
+        return result.valid || result.message || `Validation failed: ${plugin.validatorType}`;
+      };
+    }
+    return pluginValidators;
+  }, [evaluation.values, field.dataField, field.uiField, path, runtime]);
+  const mergedValidationRules = useMemo(() => {
+    if (!pluginValidationRules) return validationRules;
+    return {
+      ...validationRules,
+      validate: {
+        ...(typeof validationRules.validate === "object" ? validationRules.validate : {}),
+        ...pluginValidationRules,
+      },
+    };
+  }, [pluginValidationRules, validationRules]);
   const controller = useController<Record<string, unknown>, FieldPath>({
     control: form.control,
     name: path,
     shouldUnregister: false,
-    rules: validationRules,
+    rules: mergedValidationRules,
   });
-  const wasVisibleRef = useRef(state.visible);
+  const wasVisibleRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
-    const becameHidden = wasVisibleRef.current && !state.visible;
-    if (becameHidden) {
+    const wasVisible = wasVisibleRef.current;
+    const becameHidden = wasVisible === true && !state.visible;
+    const startsHidden = wasVisible === undefined && !state.visible;
+    if (becameHidden || startsHidden) {
       if (hiddenFieldPolicy === "clear") {
         form.setValue(path, undefined, {
           shouldDirty: true,

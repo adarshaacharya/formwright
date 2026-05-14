@@ -96,8 +96,8 @@ importers:
         specifier: ^4.3.1
         version: 4.7.0(vite@5.4.21(@types/node@25.7.0)(lightningcss@1.32.0)(terser@5.47.1))
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^5.3.4
         version: 5.4.21(@types/node@25.7.0)(lightningcss@1.32.0)(terser@5.47.1)
@@ -209,13 +209,17 @@ importers:
         specifier: ^4.3.0
         version: 4.3.0
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^5.3.4
         version: 5.4.21(@types/node@25.7.0)(lightningcss@1.32.0)(terser@5.47.1)
 
-  packages/contract: {}
+  packages/contract:
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/core:
     dependencies:
@@ -224,8 +228,8 @@ importers:
         version: link:../contract
     devDependencies:
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@25.7.0)(jsdom@24.1.3)(lightningcss@1.32.0)(terser@5.47.1)
@@ -240,8 +244,8 @@ importers:
         version: link:../core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/plugins-basic:
     dependencies:
@@ -251,6 +255,10 @@ importers:
       '@formwright/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/react-rhf:
     dependencies:
@@ -283,8 +291,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@25.7.0)(jsdom@24.1.3)(lightningcss@1.32.0)(terser@5.47.1)
@@ -308,8 +316,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/schema-builder:
     dependencies:
@@ -318,8 +326,8 @@ importers:
         version: link:../contract
     devDependencies:
       typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@25.7.0)(jsdom@24.1.3)(lightningcss@1.32.0)(terser@5.47.1)
@@ -7240,11 +7248,6 @@ packages:
 
   typedarray-to-buffer@3.1.5:
     resolution: {integrity: sha512-zdu8XMNEDepKKR+XYOXAVPtWui0ly0NtohUscw+UmaHiAWT8hrV1rr//H6V+0DvJ3OQ19S979M0laLfX8rm82Q==}
-
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -16250,8 +16253,6 @@ snapshots:
   typedarray-to-buffer@3.1.5:
     dependencies:
       is-typedarray: 1.0.0
-
-  typescript@5.9.3: {}
 
   typescript@6.0.3: {}
 
