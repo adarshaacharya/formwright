@@ -1,6 +1,7 @@
 # Formwright
 
 Formwright is a schema-driven form engine for building dynamic forms with runtime rules, plugins, and React rendering support.
+Bring your own inputs, validation, and UI.
 
 ## Cookbook
 
