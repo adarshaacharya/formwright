@@ -189,6 +189,9 @@ export interface FormRuntime {
   getEvaluationDependencies(): FieldPath[];
   getRuntimeContext(): RuntimeContext;
   getPluginRegistry(): PluginRegistry;
+  getFieldValidationPlan(path: FieldPath): ValidationPlanItem[];
+  serializeFieldValue(path: FieldPath, value: unknown): unknown;
+  deserializeFieldValue(path: FieldPath, value: unknown): unknown;
   evaluate(values?: Record<string, unknown>): RuntimeEvaluationResult;
 }
 

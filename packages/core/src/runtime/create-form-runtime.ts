@@ -3,6 +3,7 @@ import { createPluginRegistry } from "../plugins/types";
 import type { ResolvedFieldModel, ResolvedLayoutModel } from "../resolved/types";
 import type { CreateFormRuntimeInput, EffectApplyInput, FormRuntime, OperatorEvaluateInput } from "./types";
 import type { DerivedFieldState, DerivedLayoutState, RuntimeEvaluationResult } from "./types";
+import type { ValidationPlanItem } from "../validation/types";
 
 function normalizeFields(
   form: FormDefinition,
@@ -429,6 +430,12 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
   const evaluationDependencies = collectBehaviorDependencies(form);
   const initialValues = getInitialValues(resolvedFields, pluginRegistry, runtimeContext);
 
+  const getFieldPluginForPath = (path: FieldPath) => {
+    const model = resolvedFields[path];
+    if (!model) return undefined;
+    return pluginRegistry.findField(model.fieldType);
+  };
+
   return {
     getFormDefinition() {
       return form;
@@ -447,6 +454,39 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
     },
     getPluginRegistry() {
       return pluginRegistry;
+    },
+    getFieldValidationPlan(path: FieldPath): ValidationPlanItem[] {
+      const model = resolvedFields[path];
+      if (!model) return [];
+      const plugin = getFieldPluginForPath(path);
+      const pluginPlan = plugin?.getValidationPlan?.({
+        path,
+        dataField: model.dataField,
+        uiField: model.uiField,
+        context: runtimeContext ?? {},
+      }) ?? [];
+      const serverPlan = (model.dataField.serverValidation?.rules ?? []).map((validatorType) => ({
+        validatorType,
+      }));
+      return [...serverPlan, ...pluginPlan];
+    },
+    serializeFieldValue(path: FieldPath, value: unknown): unknown {
+      const plugin = getFieldPluginForPath(path);
+      if (!plugin?.serialize) return value;
+      return plugin.serialize({
+        path,
+        value,
+        context: runtimeContext ?? {},
+      });
+    },
+    deserializeFieldValue(path: FieldPath, value: unknown): unknown {
+      const plugin = getFieldPluginForPath(path);
+      if (!plugin?.deserialize) return value;
+      return plugin.deserialize({
+        path,
+        value,
+        context: runtimeContext ?? {},
+      });
     },
     evaluate(runtimeValues): RuntimeEvaluationResult {
       const layoutState: Record<string, DerivedLayoutState> = {};

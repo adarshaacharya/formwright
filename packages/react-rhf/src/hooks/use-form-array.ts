@@ -1,11 +1,11 @@
-import type { FieldPath } from "@formwright/contract";
+import type { ArrayFieldDefinition, FieldPath } from "@formwright/contract";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { useRuntimeContext } from "../provider/runtime-context";
 import { useFormRuntime } from "./use-form-runtime";
 
 export interface UseFormArrayResult {
   path: FieldPath;
-  itemType?: string;
+  itemType?: ArrayFieldDefinition["itemType"];
   visible: boolean;
   disabled: boolean;
   readonly: boolean;

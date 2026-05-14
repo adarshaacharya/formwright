@@ -9,7 +9,7 @@ import type {
   ResolvedFieldModel,
   ResolvedLayoutModel,
 } from "@formwright/core";
-import type { DataFieldDefinition } from "@formwright/contract";
+import type { ArrayFieldDefinition, DataFieldDefinition } from "@formwright/contract";
 import type { Resolver } from "react-hook-form";
 
 export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {
@@ -141,7 +141,7 @@ export interface RenderFieldProps extends FieldRendererBaseProps {
 export interface RenderArrayProps extends ArrayFieldRendererBaseProps {
   field: ResolvedFieldModel;
   state: DerivedFieldState;
-  itemType?: string;
+  itemType?: ArrayFieldDefinition["itemType"];
   items: Array<{ id: string; value: unknown }>;
   append: (value?: unknown) => void;
   remove: (index: number) => void;
@@ -173,7 +173,7 @@ export interface UseFormLayoutResult {
 
 export interface UseFormArrayResult {
   path: string;
-  itemType?: string;
+  itemType?: ArrayFieldDefinition["itemType"];
   visible: boolean;
   disabled: boolean;
   readonly: boolean;

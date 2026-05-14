@@ -168,6 +168,21 @@ Install whichever UI packages you use:
 npm install @radix-ui/react-select
 ```
 
+## RHF-First Customizability
+
+Formwright is designed as an RHF-first rendering engine:
+
+- You can plug in your own UI components through `fieldRendererMap` and `fieldSlots`.
+- Validation is extensible via schema rules, resolver-based validation, and validator plugins.
+- Runtime behavior is extensible through plugins (field/layout/operator/effect/datasource).
+- Arrays (primitive and object items) also flow through renderer extension points.
+
+What this means in practice:
+
+- For React Hook Form apps, Formwright is highly customizable and scalable for dynamic form builders.
+- Any component that can be adapted to controlled props (`value`/`onChange` or `checked`/`onCheckedChange`) can be integrated.
+- `formwright/react` targets RHF specifically. Support for other form libraries would be implemented as separate adapter packages.
+
 ## Validation
 
 Formwright supports two validation patterns:

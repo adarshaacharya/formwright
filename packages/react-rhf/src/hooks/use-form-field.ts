@@ -31,7 +31,9 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   const pluginValidationRules = useMemo<
     NonNullable<RegisterOptions<Record<string, unknown>, FieldPath>["validate"]> | undefined
   >(() => {
-    const enabledRuleTypes = field.dataField.serverValidation?.rules;
+    const enabledRuleTypes = runtime
+      .getFieldValidationPlan(path)
+      .map((item) => item.validatorType);
     const validatorPlugins = runtime
       .getPluginRegistry()
       .list()
@@ -108,10 +110,10 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   return {
     field,
     state,
-    value: controller.field.value,
+    value: runtime.deserializeFieldValue(path, controller.field.value),
     error: controller.fieldState.error?.message ?? state.errors?.[0],
     setValue(value) {
-      controller.field.onChange(value);
+      controller.field.onChange(runtime.serializeFieldValue(path, value));
     },
     onBlur() {
       controller.field.onBlur();

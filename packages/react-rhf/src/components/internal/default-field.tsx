@@ -26,7 +26,7 @@ function buildDefaultControl(
           value={(value as string | undefined) ?? ""}
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
-          disabled={state.disabled || loading}
+          disabled={state.disabled || state.readonly || loading}
           aria-label={label}
         >
           {loading ? <option value="">Loading options…</option> : <option value="">Select an option</option>}
@@ -59,7 +59,7 @@ function buildDefaultControl(
                 checked={String(value ?? "") === String(option.value)}
                 onChange={() => onChange(option.value)}
                 onBlur={onBlur}
-                disabled={state.disabled || loading || option.disabled}
+                disabled={state.disabled || state.readonly || loading || option.disabled}
               />
               <span>{option.label}</span>
             </label>
@@ -77,7 +77,7 @@ function buildDefaultControl(
           checked={Boolean(value)}
           onChange={(event) => onChange(event.target.checked)}
           onBlur={onBlur}
-          disabled={state.disabled || loading}
+          disabled={state.disabled || state.readonly || loading}
         />
         <span>{label}</span>
       </label>
@@ -91,7 +91,7 @@ function buildDefaultControl(
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         placeholder={field.uiField?.placeholder}
-        disabled={state.disabled || loading}
+        disabled={state.disabled || state.readonly || loading}
       />
     );
   }
@@ -104,7 +104,7 @@ function buildDefaultControl(
         onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))}
         onBlur={onBlur}
         placeholder={field.uiField?.placeholder}
-        disabled={state.disabled || loading}
+        disabled={state.disabled || state.readonly || loading}
       />
     );
   }
@@ -119,7 +119,7 @@ function buildDefaultControl(
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         placeholder={field.uiField?.placeholder}
-        disabled={state.disabled || loading}
+        disabled={state.disabled || state.readonly || loading}
       />
     );
   }
@@ -130,7 +130,7 @@ function buildDefaultControl(
       onChange={(event) => onChange(event.target.value)}
       onBlur={onBlur}
       placeholder={field.uiField?.placeholder}
-      disabled={state.disabled || loading}
+      disabled={state.disabled || state.readonly || loading}
     />
   );
 }

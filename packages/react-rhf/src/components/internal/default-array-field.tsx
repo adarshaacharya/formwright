@@ -1,4 +1,4 @@
-import type { ArrayFieldDefinition, DataFieldDefinition } from "@formwright/contract";
+import type { ArrayFieldDefinition, DataFieldDefinition, UiFieldNode } from "@formwright/contract";
 import type { DerivedFieldState, ResolvedFieldModel, ValidatorPlugin } from "@formwright/core";
 import { useController, useFormContext, type RegisterOptions } from "react-hook-form";
 
@@ -8,6 +8,7 @@ import { ArrayComposer } from "../array-composer";
 import { DefaultField } from "./default-field";
 import { useFormRuntime } from "../../hooks/use-form-runtime";
 import { toRHFValidationRules } from "../../validation/to-rhf-validation-rules";
+import { useDatasourceOptions } from "../../hooks/use-datasource-options";
 
 function isArrayFieldDefinition(field: DataFieldDefinition): field is ArrayFieldDefinition {
   return field.valueType === "array";
@@ -29,47 +30,60 @@ function PrimitiveArrayItem({
   path,
   index,
   disabled,
+  readonly,
+  required,
   itemType,
+  fieldRendererMap,
+  fieldSlots,
 }: {
   path: string;
   index: number;
   disabled: boolean;
-  itemType?: string;
+  readonly: boolean;
+  required: boolean;
+  itemType?: ArrayFieldDefinition["itemType"];
+  fieldRendererMap?: Record<string, FieldRendererComponent>;
+  fieldSlots?: RenderArrayProps["fieldSlots"];
 }): React.JSX.Element {
   const form = useFormContext<Record<string, unknown>>();
-  const controller = useController({ control: form.control, name: `${path}.${index}` as const });
-  if (itemType === "boolean") {
-    return (
-      <input
-        type="checkbox"
-        checked={Boolean(controller.field.value)}
-        onChange={(event) => controller.field.onChange(event.target.checked)}
-        onBlur={controller.field.onBlur}
-        disabled={disabled}
-      />
-    );
-  }
-
-  if (itemType === "number" || itemType === "integer") {
-    return (
-      <input
-        type="number"
-        value={(controller.field.value as string | number | undefined) ?? ""}
-        onChange={(event) =>
-          controller.field.onChange(event.target.value === "" ? undefined : Number(event.target.value))
-        }
-        onBlur={controller.field.onBlur}
-        disabled={disabled}
-      />
-    );
-  }
+  const runtime = useFormRuntime();
+  const fieldPath = `${path}.${index}`;
+  const controller = useController({ control: form.control, name: fieldPath });
+  const fallbackValueType: DataFieldDefinition["valueType"] = itemType ?? "string";
+  const syntheticDataField: DataFieldDefinition = {
+    valueType: fallbackValueType,
+    required,
+  };
+  const syntheticUiField: UiFieldNode = {
+    fieldType: fallbackValueType === "boolean" ? "checkbox" : fallbackValueType,
+  };
+  const runtimeField: ResolvedFieldModel = {
+    path: fieldPath,
+    fieldType: syntheticUiField.fieldType,
+    valueType: syntheticDataField.valueType,
+    rendererKey: syntheticUiField.fieldType,
+    dataField: syntheticDataField,
+    uiField: syntheticUiField,
+  };
+  const runtimeState: DerivedFieldState = {
+    path: fieldPath,
+    visible: true,
+    disabled,
+    readonly,
+    required,
+  };
+  const Renderer = fieldRendererMap?.[runtimeField.rendererKey] ?? fieldRendererMap?.[runtimeField.fieldType] ?? DefaultField;
 
   return (
-    <input
-      value={(controller.field.value as string | number | undefined) ?? ""}
-      onChange={(event) => controller.field.onChange(event.target.value)}
+    <Renderer
+      path={fieldPath}
+      field={runtimeField}
+      state={runtimeState}
+      value={runtime.deserializeFieldValue(fieldPath, controller.field.value)}
+      error={controller.fieldState.error?.message}
+      onChange={(nextValue) => controller.field.onChange(runtime.serializeFieldValue(fieldPath, nextValue))}
       onBlur={controller.field.onBlur}
-      disabled={disabled}
+      slots={fieldSlots}
     />
   );
 }
@@ -114,8 +128,19 @@ function ObjectArrayItemField({
   const form = useFormContext<Record<string, unknown>>();
   const runtime = useFormRuntime();
   const { evaluation } = useRuntimeContext();
+  const fieldUi: UiFieldNode = {
+    fieldType,
+    label,
+    description,
+    helpText,
+    placeholder,
+    widget: inputType,
+  };
+  const { loading, options, error: datasourceError } = useDatasourceOptions(fieldPath as `${string}`);
   const pluginValidationRules = (() => {
-    const enabledRuleTypes = dataField.serverValidation?.rules;
+    const enabledRuleTypes = runtime
+      .getFieldValidationPlan(fieldPath)
+      .map((item) => item.validatorType);
     const validatorPlugins = runtime
       .getPluginRegistry()
       .list()
@@ -127,7 +152,7 @@ function ObjectArrayItemField({
         return plugin.supports({
           path: fieldPath,
           dataField,
-          uiField: undefined,
+          uiField: fieldUi,
         });
       });
 
@@ -141,7 +166,7 @@ function ObjectArrayItemField({
           path: fieldPath,
           value,
           dataField,
-          uiField: undefined,
+          uiField: fieldUi,
           values: evaluation.values,
           context: runtime.getRuntimeContext(),
         });
@@ -169,14 +194,7 @@ function ObjectArrayItemField({
     valueType: dataField.valueType,
     rendererKey,
     dataField,
-    uiField: {
-      fieldType,
-      label,
-      description,
-      helpText,
-      placeholder,
-      widget: inputType,
-    },
+    uiField: fieldUi,
   };
   const runtimeState: DerivedFieldState = {
     path: fieldPath,
@@ -192,10 +210,12 @@ function ObjectArrayItemField({
       path={fieldPath}
       field={runtimeField}
       state={runtimeState}
-      value={controller.field.value}
-      error={controller.fieldState.error?.message}
-      onChange={controller.field.onChange}
+      value={runtime.deserializeFieldValue(fieldPath, controller.field.value)}
+      error={controller.fieldState.error?.message ?? datasourceError}
+      onChange={(nextValue) => controller.field.onChange(runtime.serializeFieldValue(fieldPath, nextValue))}
       onBlur={controller.field.onBlur}
+      loading={loading}
+      options={options}
       slots={fieldSlots}
     />
   );
@@ -271,7 +291,7 @@ export function DefaultArrayField({
   const computedItemLayout = itemLayout ?? Object.keys(itemSchema ?? {});
   const ItemShell = slots?.ItemShell ?? DefaultArrayItemShell;
   const footer = (
-    <button type="button" onClick={() => append()} disabled={state.disabled}>
+    <button type="button" onClick={() => append()} disabled={state.disabled || state.readonly}>
       add item
     </button>
   );
@@ -301,9 +321,18 @@ export function DefaultArrayField({
               fieldSlots={fieldSlots}
             />
           ) : (
-            <PrimitiveArrayItem path={field.path} index={index} disabled={state.disabled} itemType={itemType} />
+            <PrimitiveArrayItem
+              path={field.path}
+              index={index}
+              disabled={state.disabled}
+              readonly={state.readonly}
+              required={state.required}
+              itemType={itemType}
+              fieldRendererMap={fieldRendererMap}
+              fieldSlots={fieldSlots}
+            />
           )}
-          <button type="button" onClick={() => remove(index)} disabled={state.disabled}>
+          <button type="button" onClick={() => remove(index)} disabled={state.disabled || state.readonly}>
             remove
           </button>
         </ItemShell>
