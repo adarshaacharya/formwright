@@ -8,51 +8,60 @@ sidebar_position: 1
 import { defineForm, field, layout, rule, fieldRef, contextRef, datasource, buildForm } from "formwright/schema";
 ```
 
-## `defineForm({ id })`
+The schema builder is the authoring layer for `FormDefinition`. You use it to describe fields, layout, behavior, and data sources in plain TypeScript.
 
-Creates a form descriptor. `id` must be unique across your application.
+## `defineForm(input)`
+
+Creates the base form descriptor used by `buildForm()`.
 
 ```ts
-const myForm = defineForm({ id: "checkout-form" });
+const form = defineForm({
+  id: "customer-onboarding",
+  meta: { title: "Customer onboarding" },
+});
 ```
+
+| Property | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique form identifier |
+| `version` | `"1.0"` | No | Defaults to `"1.0"` |
+| `meta` | `FormMeta` | No | Arbitrary metadata copied into the final schema |
 
 ## `field`
 
-### Text-based fields
+Each helper returns a `BuiltField` that can be reused in layout and rules.
 
-| Method | Field type | Notes |
+### String fields
+
+| Method | Value type | Notes |
 |---|---|---|
-| `field.text(path, options)` | `string` | |
-| `field.email(path, options)` | `string` | Validates email format |
-| `field.password(path, options)` | `string` | |
-| `field.url(path, options)` | `string` | Validates URL format |
-| `field.tel(path, options)` | `string` | |
+| `field.text(path, options)` | `string` | Standard text input |
+| `field.textarea(path, options)` | `string` | Text input with `widget: "textarea"` |
+| `field.email(path, options)` | `string` | Sets `format: "email"` |
+| `field.url(path, options)` | `string` | Sets `format: "url"` |
+| `field.phone(path, options)` | `string` | Sets `format: "phone"` |
 
 ### Numeric fields
 
-| Method | Field type | Notes |
+| Method | Value type | Notes |
 |---|---|---|
-| `field.number(path, options)` | `number` | Floating point |
+| `field.number(path, options)` | `number` | Floating point numbers |
 | `field.integer(path, options)` | `integer` | Whole numbers only |
 
-### Other primitives
+### Other fields
 
-| Method | Field type | Notes |
+| Method | Value type | Notes |
 |---|---|---|
-| `field.boolean(path, options)` | `boolean` | |
-| `field.date(path, options)` | `date` | ISO date string |
-| `field.datetime(path, options)` | `datetime` | ISO datetime string |
-| `field.file(path, options)` | `file` | |
+| `field.checkbox(path, options)` | `boolean` | Checkbox-style boolean field |
+| `field.select(path, options)` | `string \| number \| boolean` | Inferred from the option values |
+| `field.date(path, options)` | `date` | Date-only value |
+| `field.datetime(path, options)` | `datetime` | Datetime value |
+| `field.array(path, options)` | `array` | Primitive or object arrays |
+| `field.objectArray(path, options)` | `array` | Convenience helper for object arrays |
 
-### Composite fields
+### Common options
 
-| Method | Notes |
-|---|---|
-| `field.select(path, options)` | Requires `options` array or `dataSource` name |
-| `field.object(path, options)` | Requires `item.fields` map |
-| `field.array(path, options)` | Requires `item` definition (`type: "primitive"` or `type: "object"`) |
-
-### Field options (common across all types)
+Most field helpers support:
 
 ```ts
 {
@@ -60,157 +69,367 @@ const myForm = defineForm({ id: "checkout-form" });
   description?: string;
   helpText?: string;
   placeholder?: string;
-  required?: boolean;
-  default?: T;
-  renderer?: string;           // override renderer key
-  componentProps?: object;     // forwarded to renderer
-  wrapperProps?: object;       // forwarded to field shell
+  renderer?: string;
+  componentProps?: Record<string, unknown>;
+  wrapperProps?: Record<string, unknown>;
   styleTokens?: Record<string, string | number | boolean>;
-}
-```
-
-### Field-type-specific options
-
-**String fields** (`text`, `email`, `password`, `url`, `tel`):
-
-```ts
-{ minLength?: number; maxLength?: number; pattern?: string }
-```
-
-**Numeric fields** (`number`, `integer`):
-
-```ts
-{ minimum?: number; maximum?: number }
-```
-
-**Select field**:
-
-```ts
-{
-  options?: Array<{ value: string | number | boolean; label: string }>;
-  dataSource?: string;   // datasource name from buildForm datasources array
-}
-```
-
-**Array field**:
-
-```ts
-{
-  item: {
-    type: "primitive";
-    valueType: "string" | "number" | ...;
-  } | {
-    type: "object";
-    fields: Record<string, DataFieldDefinition>;
+  accessibility?: {
+    labelHidden?: boolean;
+    ariaDescription?: string;
   };
+}
+```
+
+### Validation and defaults
+
+String-like fields (`text`, `textarea`, `email`, `url`, `phone`) also support:
+
+```ts
+{
+  required?: boolean;
+  default?: string;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+}
+```
+
+Numeric fields (`number`, `integer`) support:
+
+```ts
+{
+  required?: boolean;
+  default?: number;
+  minimum?: number;
+  maximum?: number;
+}
+```
+
+Checkbox fields support:
+
+```ts
+{
+  required?: boolean;
+  default?: boolean;
+}
+```
+
+Date and datetime fields support:
+
+```ts
+{
+  required?: boolean;
+  default?: string;
+}
+```
+
+### `field.select(path, options)`
+
+```ts
+const accountType = field.select("accountType", {
+  label: "Account type",
+  default: "individual",
+  options: [
+    { label: "Individual", value: "individual" },
+    { label: "Company", value: "company" },
+  ],
+});
+```
+
+Options:
+
+```ts
+{
+  required?: boolean;
+  default?: string | number | boolean;
+  options?: Array<{ label: string; value: string | number | boolean; disabled?: boolean }>;
+  dataSource?: string;
+}
+```
+
+Use `options` for inline values or `dataSource` to load options at runtime.
+
+### `field.array(path, options)`
+
+For primitive arrays:
+
+```ts
+const tags = field.array("tags", {
+  label: "Tags",
+  item: field.stringItem(),
+});
+```
+
+For object arrays:
+
+```ts
+const addresses = field.array("addresses", {
+  label: "Addresses",
+  item: {
+    kind: "object",
+    fields: {
+      street: field.textItem({ label: "Street", default: "" }),
+      city: field.textItem({ label: "City", default: "" }),
+    },
+  },
+});
+```
+
+Options:
+
+```ts
+{
+  label?: string;
+  item:
+    | { kind: "primitive"; valueType: "string" | "number" | "boolean"; defaultValue?: unknown }
+    | {
+        kind: "object";
+        fields: Record<string, ObjectItemFieldDefinition>;
+        itemLayout?: string[];
+      };
   minItems?: number;
   maxItems?: number;
 }
 ```
 
+### Array item helpers
+
+Use these when building arrays:
+
+| Helper | Purpose |
+|---|---|
+| `field.stringItem(defaultValue?)` | Primitive string item |
+| `field.numberItem(defaultValue?)` | Primitive number item |
+| `field.booleanItem(defaultValue?)` | Primitive boolean item |
+| `field.textItem(options?)` | Object-array field definition with `valueType: "string"` |
+
+`field.objectArray()` is shorthand for `field.array()` with `item.kind: "object"`.
+
 ## `layout`
 
-### Container nodes
+Layout helpers build the `uiSchema.layout` tree.
+
+### `layout.field(input, options?)`
+
+References a field in the layout.
+
+```ts
+layout.field(accountType, { span: 1 })
+layout.field("contact.email")
+```
+
+| Option | Type | Notes |
+|---|---|---|
+| `span` | `number` | Used by grid layouts |
+
+### Container helpers
 
 | Method | Signature |
 |---|---|
-| `layout.stack` | `(id, children, options?)` |
-| `layout.section` | `(id, children, options?)` |
-| `layout.grid` | `(id, { columns }, children)` |
-| `layout.tabs` | `(id, TabDefinition[], options?)` |
-| `layout.stepper` | `(id, StepDefinition[], options?)` |
-| `layout.divider` | `(id)` |
+| `layout.stack(id, children, options?)` | Vertical layout |
+| `layout.section(id, children, options?)` | Grouped section |
+| `layout.grid(id, { columns, ...options }, children)` | Multi-column layout |
+| `layout.tabs(id, tabs, options?)` | Tabbed layout |
+| `layout.stepper(id, steps, options?)` | Multi-step layout |
+| `layout.divider(id?, options?)` | Visual separator |
 
-### Leaf node
-
-```ts
-layout.field(fieldOrPath, { span?: number })
-```
-
-### Base options (all containers)
+Base options:
 
 ```ts
 {
   title?: string;
   description?: string;
   visibleWhen?: RuleExpression;
-  componentProps?: object;
+  componentProps?: Record<string, unknown>;
 }
 ```
 
-### `TabDefinition`
+### `layout.tabs()`
 
 ```ts
-{ key: string; label: string; content: LayoutNode }
+layout.tabs("profile-tabs", [
+  {
+    id: "account",
+    label: "Account",
+    children: [layout.field("contact.email")],
+  },
+  {
+    id: "details",
+    label: "Details",
+    children: [layout.field("company.name")],
+  },
+]);
 ```
 
-### `StepDefinition`
+### `layout.stepper()`
 
 ```ts
-{ key: string; label: string; content: LayoutNode }
+layout.stepper("checkout-steps", [
+  {
+    id: "shipping",
+    label: "Shipping",
+    children: [layout.field("shipping.address")],
+  },
+  {
+    id: "payment",
+    label: "Payment",
+    children: [layout.field("payment.cardNumber")],
+  },
+]);
 ```
 
 ## `rule`
 
 ### `rule.when(expression)`
 
-Returns a `RuleBuilder` with these effect methods:
+Starts a rule definition and returns a builder for one effect.
+
+```ts
+rule.when(fieldRef(accountType).eq("company")).show(companyName)
+rule.when(contextRef("mode").eq("view")).disableAll()
+```
+
+Available builder methods:
 
 | Method | Effect |
 |---|---|
-| `.show(target)` | Make field visible |
-| `.hide(target)` | Hide field |
-| `.enable(target)` | Enable field |
-| `.disable(target)` | Disable field |
-| `.require(target, value?)` | Set required state (default `true`) |
-| `.setValue(target, value)` | Set field value |
-| `.clearValue(target)` | Clear field value |
-| `.disableAll()` | Disable all fields |
+| `.show(target)` | Show a field |
+| `.hide(target)` | Hide a field |
+| `.enable(target)` | Enable a field |
+| `.disable(target)` | Disable a field |
+| `.require(target, value?)` | Set required state |
+| `.setValue(target, value)` | Set a field value |
+| `.clearValue(target)` | Clear a field value |
+| `.disableAll()` | Disables all fields by targeting `*` |
 
-`target` accepts a `BuiltField` object or a dot-notation path string.
+`target` accepts either a `BuiltField` or a dot-notation field path.
 
 ## `fieldRef(fieldOrPath)`
 
-Creates a reference to a field value for use in rule expressions.
+Creates a rule reference for a field value.
 
 ```ts
-fieldRef(myField)         // BuiltField object
-fieldRef("address.city")  // path string
+fieldRef(accountType).eq("company")
+fieldRef("contact.email").exists()
 ```
 
-Returns a `RuleReference` with comparison methods:
+Available comparisons:
 
 ```ts
-.eq(value)    .neq(value)   .gt(value)   .gte(value)
-.lt(value)    .lte(value)   .in(values)  .exists()
+.eq(value)
+.neq(value)
+.gt(number)
+.gte(number)
+.lt(number)
+.lte(number)
+.in(values)
+.exists()
 ```
 
 ## `contextRef(name)`
 
-Creates a reference to a value in the runtime context.
+Creates a rule reference for runtime context values passed to `createFormRuntime()`.
 
 ```ts
 contextRef("mode").eq("view")
-contextRef("userRole").in(["admin", "superadmin"])
+contextRef("role").in(["admin", "reviewer"])
 ```
+
+Context references are stored internally as `$${name}`.
 
 ## `datasource`
 
-| Method | Signature |
-|---|---|
-| `datasource.static` | `(name, options[])` |
-| `datasource.remote` | `(name, { endpoint, method, labelKey, valueKey, dependsOn?, queryMap?, bodyMap? })` |
+### `datasource.static(name, options)`
+
+Defines inline select options:
+
+```ts
+datasource.static("countries", [
+  { label: "United States", value: "US" },
+  { label: "Nepal", value: "NP" },
+]);
+```
+
+### `datasource.remote(name, definition)`
+
+Defines a remotely loaded data source:
+
+```ts
+datasource.remote("countries", {
+  endpoint: "/api/countries",
+  method: "GET",
+  dependsOn: ["region"],
+  queryMap: { region: "region" },
+});
+```
+
+Remote options:
+
+```ts
+{
+  endpoint: string;
+  method?: "GET" | "POST";
+  dependsOn?: string[];
+  queryMap?: Record<string, string>;
+  bodyMap?: Record<string, unknown>;
+}
+```
 
 ## `buildForm(input)`
 
+Combines the form draft, fields, layout, and optional behavior into a `FormDefinition`.
+
 ```ts
-buildForm({
-  form: FormDraft;                    // from defineForm()
-  fields: BuiltField[];               // all fields used in the form
-  layout: LayoutNode;                 // root layout node
-  rules?: BuiltRule[];                // behavior rules
-  datasources?: BuiltDataSource[];    // data source definitions
-  computed?: ComputedFieldDefinition[];
-  lifecycle?: LifecycleDefinition;
-}): FormDefinition
+const formDefinition = buildForm({
+  form: defineForm({ id: "customer-form", meta: { title: "Customer" } }),
+  fields: [accountType, companyName, country],
+  layout: layout.stack("root", [
+    layout.field(accountType),
+    layout.field(companyName),
+    layout.field(country),
+  ]),
+  datasources: [
+    datasource.static("countries", [
+      { label: "United States", value: "US" },
+      { label: "Nepal", value: "NP" },
+    ]),
+  ],
+  rules: [
+    rule.when(fieldRef(accountType).eq("company")).show(companyName),
+    rule.when(contextRef("mode").eq("view")).disableAll(),
+  ],
+});
 ```
+
+| Property | Type | Required | Notes |
+|---|---|---|---|
+| `form` | `FormDraft` | Yes | From `defineForm()` |
+| `fields` | `BuiltField[]` | Yes | All field definitions referenced by the form |
+| `layout` | `LayoutNode` | Yes | Root layout node |
+| `rules` | `BuiltRule[]` | No | Converted into `behaviorSchema.rules` |
+| `datasources` | `BuiltDataSource[]` | No | Converted into `behaviorSchema.dataSources` |
+| `computed` | `ComputedFieldDefinition[]` | No | Computed field configuration |
+| `lifecycle` | `LifecycleDefinition` | No | Lifecycle actions |
+
+### Computed fields
+
+```ts
+computed: [
+  {
+    target: "accountType",
+    expression: { var: "accountType" },
+    runOn: ["accountType"],
+  },
+]
+```
+
+### Lifecycle actions
+
+```ts
+lifecycle: {
+  onLoad: [{ type: "fetchDataSource", target: "countries" }],
+  onSubmit: [{ type: "submitTo", target: "/api/forms" }],
+}
+```
+
+See [Schema](../guides/schema) for the authoring guide and [Core API](./core-api) for runtime evaluation.

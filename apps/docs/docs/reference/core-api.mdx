@@ -23,7 +23,7 @@ const runtime = createFormRuntime({
 | Option | Type | Required | Description |
 |---|---|---|---|
 | `form` | `FormDefinition` | Yes | Output of `buildForm()` |
-| `plugins` | `FormPlugin[]` | Yes | Plugin array (field, operator, effect, datasource, ...) |
+| `plugins` | `FormPlugin[]` | No | Plugin array (field, operator, effect, datasource, ...) |
 | `context` | `Record<string, unknown>` | No | Runtime context, available in rules via `contextRef()` |
 
 ### Returns: `FormRuntime`
@@ -31,9 +31,9 @@ const runtime = createFormRuntime({
 | Method | Returns | Description |
 |---|---|---|
 | `evaluate(values?)` | `RuntimeEvaluationResult` | Runs all rules against values, returns derived state |
-| `getResolvedFields()` | `ResolvedFieldModel[]` | Normalized field models after field plugins run |
+| `getResolvedFields()` | `Record<string, ResolvedFieldModel>` | Normalized field models after field plugins run |
 | `getFormDefinition()` | `FormDefinition` | Original schema |
-| `getResolvedLayout()` | `ResolvedLayoutModel[]` | Normalized layout models |
+| `getResolvedLayout()` | `ResolvedLayoutModel` | Normalized root layout model |
 | `getEvaluationDependencies()` | `string[]` | Field paths whose changes trigger re-evaluation |
 | `getRuntimeContext()` | `RuntimeContext` | The context passed at creation |
 | `getPluginRegistry()` | `PluginRegistry` | The plugin registry |
@@ -57,9 +57,13 @@ Returns:
 
 ```ts
 {
+  path: string;
   visible: boolean;
   disabled: boolean;
+  readonly: boolean;
   required: boolean;
+  loading?: boolean;
+  errors?: string[];
 }
 ```
 
@@ -67,7 +71,9 @@ Returns:
 
 ```ts
 {
+  id?: string;
   visible: boolean;
+  disabled?: boolean;
 }
 ```
 

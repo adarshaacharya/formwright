@@ -43,7 +43,7 @@ import type { OperatorPlugin } from "formwright/core";
 const startsWithOperator: OperatorPlugin = {
   kind: "operator",
   identity: { name: "startsWith", version: "1" },
-  operatorKey: "startsWith",
+  operatorType: "startsWith",
 
   evaluate({ expression, values, context }) {
     // expression is { startsWith: [{ var: "fieldPath" }, "prefix"] }
@@ -74,24 +74,26 @@ rules: [
 
 ## Writing an effect plugin
 
-Add a new effect. Example: `setPlaceholder`:
+Add a new effect. Example: `setReadonly`:
 
 ```ts
 import type { EffectPlugin } from "formwright/core";
 
-const setPlaceholderEffect: EffectPlugin = {
+const setReadonlyEffect: EffectPlugin = {
   kind: "effect",
-  identity: { name: "setPlaceholder", version: "1" },
-  effectType: "setPlaceholder",
+  identity: { name: "setReadonly", version: "1" },
+  effectType: "setReadonly",
 
-  apply({ effect, fieldStateMutations }) {
-    // effect is { type: "setPlaceholder", target: "fieldPath", value: "Enter..." }
-    fieldStateMutations.push({
-      path: effect.target as string,
-      mutation: (state) => ({ ...state, placeholder: effect.value }),
-    });
-
-    return { matched: true };
+  apply({ effect }) {
+    // effect is { type: "setReadonly", target: "fieldPath", value: true }
+    return {
+      fieldMutations: [
+        {
+          path: effect.target as string,
+          patch: { readonly: Boolean(effect.value) },
+        },
+      ],
+    };
   },
 };
 ```
@@ -110,10 +112,12 @@ const phoneFieldPlugin: FieldPlugin = {
 
   normalize(input) {
     return {
-      rendererKey: "phone",
-      validationRules: input.definition.required
-        ? [{ type: "required", message: "Phone number is required" }]
-        : [],
+      fieldType: "phone",
+      normalizedDataField: input.dataField,
+      normalizedUiField: {
+        ...input.uiField,
+        fieldType: "phone",
+      },
     };
   },
 
@@ -122,9 +126,13 @@ const phoneFieldPlugin: FieldPlugin = {
   },
 
   getValidationPlan(input) {
-    return input.definition.required
-      ? [{ type: "required", message: "Required" }]
+    return input.dataField.required
+      ? [{ validatorType: "required" }]
       : [];
+  },
+
+  getRendererKey() {
+    return "phone";
   },
 
   serialize(input) {
