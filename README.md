@@ -1,4 +1,8 @@
-# Formwright <img>
+<p align="center">
+  <img src="assets/formwright-icon.svg" alt="Formwright" width="32" height="32" />
+</p>
+
+<h1 align="center">Formwright</h1>
 
 [![npm version](https://img.shields.io/npm/v/formwright)](https://www.npmjs.com/package/formwright)
 [![npm downloads](https://img.shields.io/npm/dm/formwright)](https://www.npmjs.com/package/formwright)
