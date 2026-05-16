@@ -1,4 +1,4 @@
-# Formwright
+# Formwright <img>
 
 [![npm version](https://img.shields.io/npm/v/formwright)](https://www.npmjs.com/package/formwright)
 [![npm downloads](https://img.shields.io/npm/dm/formwright)](https://www.npmjs.com/package/formwright)
