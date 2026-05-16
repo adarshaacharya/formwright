@@ -22,7 +22,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/adarsha/form-builder/tree/main/apps/docs/',
+          editUrl: 'https://github.com/adarsha/formwright/tree/main/apps/docs/',
         },
         blog: false,
         theme: {
@@ -50,7 +50,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/adarsha/form-builder',
+          href: 'https://github.com/adarsha/formwright',
           label: 'GitHub',
           position: 'right',
         },
@@ -77,7 +77,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/adarsha/form-builder',
+              href: 'https://github.com/adarsha/formwright',
             },
           ],
         },

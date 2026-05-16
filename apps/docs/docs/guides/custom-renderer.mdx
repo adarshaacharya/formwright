@@ -4,17 +4,22 @@ sidebar_position: 5
 
 # Custom Renderers
 
-Build a custom field renderer using `FieldComposer` — Formwright handles the composition shell (label, description, error, help text), you provide the control.
+Two patterns for building custom field rendering. Choose based on whether you need a reusable renderer component (registered in `fieldRendererMap`) or inline composition per field.
 
-## When to use this
+## When to use which
 
-Use `FieldComposer` when:
+| Situation | Pattern |
+|---|---|
+| Composing specific fields inline | `FormField` compound parts |
+| Building a reusable renderer for all fields of one type | `FieldComposer` + `fieldRendererMap` |
 
-- You need a domain-specific widget (country select, color picker, rich text)
-- You want Formwright to manage the label/error/help layout
-- You want your renderer to work cleanly with `fieldSlots`
+For most BYOC cases, `FormField` compound is simpler. See [Customization](./customization#formfield-compound-parts).
 
-If you only need to change how the input looks (not the structure), use [slots or fieldRendererMap](./customization) instead.
+## `FieldComposer` — reusable renderer components
+
+Use `FieldComposer` when building a renderer component to register in `fieldRendererMap`. Formwright handles the shell (label, description, error, help) — you provide the control. Works with `fieldSlots`.
+
+If you only need to change how an input looks globally, use [slots or fieldRendererMap](./customization) instead.
 
 ## Step 1: Implement the renderer
 

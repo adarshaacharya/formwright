@@ -16,10 +16,10 @@ import { defineForm, field, layout, rule, datasource, buildForm } from "formwrig
 
 ```ts
 field.text("firstName", { label: "First name", required: true })
+field.textarea("bio", { label: "Bio", maxLength: 500 })
 field.email("contactEmail", { label: "Email" })
-field.password("password", { label: "Password", minLength: 8 })
 field.url("website", { label: "Website" })
-field.tel("phone", { label: "Phone number" })
+field.phone("mobile", { label: "Phone number" })
 ```
 
 ### Numeric fields
@@ -32,7 +32,7 @@ field.integer("quantity", { label: "Quantity", minimum: 1, maximum: 999 })
 ### Boolean
 
 ```ts
-field.boolean("agreeToTerms", { label: "I agree to the terms" })
+field.checkbox("agreeToTerms", { label: "I agree to the terms" })
 ```
 
 ### Select (single-choice)
@@ -62,48 +62,40 @@ field.date("birthday", { label: "Date of birth" })
 field.datetime("scheduledAt", { label: "Scheduled time" })
 ```
 
-### File upload
-
-```ts
-field.file("attachment", { label: "Attachment" })
-```
-
-### Nested object
-
-```ts
-field.object("address", {
-  label: "Address",
-  item: {
-    fields: {
-      street: field.text("street", { label: "Street" }).data,
-      city:   field.text("city",   { label: "City" }).data,
-      zip:    field.text("zip",    { label: "ZIP" }).data,
-    },
-  },
-})
-```
-
-Object fields use dot-notation paths: `address.city`, `address.zip`.
-
 ### Array
 
+Object arrays use `field.objectArray` (shorthand) or `field.array` with `kind: "object"`:
+
 ```ts
-field.array("lineItems", {
+// Shorthand:
+field.objectArray("lineItems", {
   label: "Line items",
   item: {
-    type: "object",
-    fields: {
-      name:  field.text("name",  { label: "Item name" }).data,
-      qty:   field.integer("qty", { label: "Qty", minimum: 1 }).data,
-      price: field.number("price", { label: "Price" }).data,
-    },
+    name:  field.textItem({ label: "Item name" }),
+    qty:   { valueType: "integer", label: "Qty" },
+    price: { valueType: "number",  label: "Price" },
   },
   minItems: 1,
   maxItems: 20,
 })
+
+// Primitive array (list of strings):
+field.array("tags", {
+  label: "Tags",
+  item: field.stringItem(),
+})
 ```
 
 Array item values use indexed paths: `lineItems.0.name`, `lineItems.1.price`.
+
+### Array item helpers
+
+| Helper | Purpose |
+|---|---|
+| `field.stringItem(defaultValue?)` | Primitive string item |
+| `field.numberItem(defaultValue?)` | Primitive number item |
+| `field.booleanItem(defaultValue?)` | Primitive boolean item |
+| `field.textItem(options?)` | Object-array field with `valueType: "string"` |
 
 ### Common field options
 

@@ -112,9 +112,159 @@ Pass `initialValues` for edit forms:
 </FormRuntimeProvider>
 ```
 
+## Bring Your Own Components (BYOC)
+
+The defaults are plain native HTML — no styling opinions. Three ways to replace them.
+
+### When to use which
+
+| Situation | Option |
+|---|---|
+| You control layout — fields live inside your own page structure | **A** — `FormField` compound |
+| Schema drives layout, you just want to restyle labels/errors globally | **B** — Slots |
+| Schema drives layout, you want to swap inputs by type (all selects, all text) | **C** — `fieldRendererMap` |
+| Mix: schema-driven layout + a few complex fields (date picker, signature) | **B + C** — Slots + renderer map |
+
+### Option A: `FormField` compound parts (recommended)
+
+`FormField` is a compound component — compose each field yourself using declarative parts. `FormField.Control` accepts a render function that gives you `value`, `onChange`, `onBlur`, `error`, and `state`. No custom renderer boilerplate.
+
+```tsx title="ProfileForm.tsx"
+import { FormRuntimeProvider, FormField } from "formwright/react";
+import { Input } from "@/components/ui/input"; // shadcn, Mantine, Radix, anything
+
+export function ProfileForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <form onSubmit={...}>
+        <div className="space-y-4">
+          <FormField.Root path="name">
+            <FormField.Label />
+            <FormField.Control>
+              {({ value, onChange, onBlur, error, state }) => (
+                <Input
+                  value={typeof value === "string" ? value : ""}
+                  onChange={(e) => onChange(e.target.value)}
+                  onBlur={onBlur}
+                  disabled={state.disabled}
+                  aria-invalid={Boolean(error)}
+                />
+              )}
+            </FormField.Control>
+            <FormField.Error />
+          </FormField.Root>
+
+          <FormField.Root path="email">
+            <FormField.Label />
+            <FormField.Control /> {/* renders default HTML input */}
+            <FormField.Error />
+          </FormField.Root>
+        </div>
+        <button type="submit">Save</button>
+      </form>
+    </FormRuntimeProvider>
+  );
+}
+```
+
+Parts: `Root` (required, wraps one field path), `Label`, `Description`, `Control`, `Error`, `Help`. Use any component library inside `Control` — shadcn/ui, Mantine, Radix, Ant Design, MUI, your own design system.
+
+### Option B: Style via slots (wrap the defaults)
+
+`fieldSlots` applies global styling to the field shell when using `FormRuntimeRoot`. Use this when the schema drives your layout and you just want to restyle labels, errors, or wrappers.
+
+```tsx
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldSlots={{
+    Label: ({ label, state }) => (
+      <label className="text-sm font-medium text-gray-700">
+        {label}
+        {state.required && <span className="ml-1 text-red-500">*</span>}
+      </label>
+    ),
+    Error: ({ error }) =>
+      error ? <p className="text-sm text-red-600">{error}</p> : null,
+  }}
+/>
+```
+
+The `Control` slot receives `defaultControl` — wrap the native input without replacing it entirely:
+
+```tsx
+fieldSlots={{
+  Control: ({ defaultControl, error }) => (
+    <div className={`rounded border px-3 py-2 ${error ? "border-red-500" : "border-gray-300"}`}>
+      {defaultControl}
+    </div>
+  ),
+}}
+```
+
+### Option C: Replace inputs by type (shadcn/ui, Radix, Mantine, …)
+
+`fieldRendererMap` swaps the entire renderer for a field type. Wire any headless or component-library input to `value` / `onChange` / `onBlur` — that's all Formwright needs.
+
+**shadcn/ui** (most common):
+
+```tsx title="renderers.tsx"
+import { Input } from "@/components/ui/input";
+import { type FieldRendererComponent } from "formwright/react";
+
+export const ShadcnInput: FieldRendererComponent = ({ value, onChange, onBlur, error, state, field }) => (
+  <div className="flex flex-col gap-1">
+    <label className="text-sm font-medium">{field.uiField?.label}</label>
+    <Input
+      value={typeof value === "string" ? value : ""}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      disabled={state.disabled}
+      placeholder={field.uiField?.placeholder}
+      aria-invalid={Boolean(error)}
+    />
+    {error && <p className="text-sm text-destructive">{error}</p>}
+  </div>
+);
+```
+
+**Mantine**:
+
+```tsx
+import { TextInput } from "@mantine/core";
+import { type FieldRendererComponent } from "formwright/react";
+
+export const MantineInput: FieldRendererComponent = ({ value, onChange, onBlur, error, state, field }) => (
+  <TextInput
+    label={field.uiField?.label}
+    value={typeof value === "string" ? value : ""}
+    onChange={(e) => onChange(e.target.value)}
+    onBlur={onBlur}
+    disabled={state.disabled}
+    placeholder={field.uiField?.placeholder}
+    error={error}
+  />
+);
+```
+
+Then register for whichever field types you want to replace:
+
+```tsx title="ProfileForm.tsx"
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldRendererMap={{
+    text: ShadcnInput,   // or MantineInput
+    email: ShadcnInput,
+  }}
+/>
+```
+
+Mix both: `fieldSlots` for global label/error chrome, `fieldRendererMap` only for types that need a custom component. Any component library works — Radix UI, Chakra, Ant Design, MUI, or your own internal design system — as long as it accepts controlled `value` and `onChange` props.
+
+See [Customization](../guides/customization) for the full guide including shadcn/ui, Radix, and design system patterns.
+
 ## Next steps
 
 - [Schema](../guides/schema) — all field types, layout, rules, and data sources
 - [Conditional Fields](../guides/conditional-fields) — show/hide fields based on values
-- [Customization](../guides/customization) — plug in your design system
+- [Customization](../guides/customization) — slots, renderer maps, design system patterns
 - [Validation](../guides/validation) — schema rules, Zod, cross-field validation

@@ -4,17 +4,154 @@ sidebar_position: 3
 
 # Customization
 
-Formwright renders native HTML inputs by default, but it's designed to work with any component library. There are three ways to bring in your own UI — choose based on how much you want to replace.
+Formwright renders native HTML inputs by default, but it's designed to work with any component library. Choose an approach based on whether you want automatic layout (schema-driven via `FormRuntimeRoot`) or manual field composition (`FormField` compound).
 
 ## Decision guide
 
 | I want to... | Use |
 |---|---|
-| Restyle labels, errors, or wrappers globally | `fieldSlots` |
-| Replace one input type (all text inputs, all selects) | `fieldRendererMap` |
-| Build a complex domain widget (date picker, signature pad) | `fieldRendererMap` + `FieldComposer` |
-| Restyle array field shells and buttons | `arraySlots` |
-| Replace a layout container (grid, section) | `layoutRendererMap` |
+| Compose individual fields with my own inputs | `FormField` compound parts |
+| Compose array fields manually | `FormArray` compound parts |
+| Restyle labels, errors, or wrappers globally (auto layout) | `fieldSlots` on `FormRuntimeRoot` |
+| Replace one input type globally (auto layout) | `fieldRendererMap` on `FormRuntimeRoot` |
+| Build a reusable custom renderer component | `FieldComposer` + `fieldRendererMap` |
+| Restyle array field shells and buttons (auto layout) | `arraySlots` on `FormRuntimeRoot` |
+| Replace a layout container (grid, section) | `layoutRendererMap` on `FormRuntimeRoot` |
+
+## `FormField` compound parts
+
+Use `FormField` when you want to compose individual fields yourself — without `FormRuntimeRoot`. You still need `FormRuntimeProvider` as an ancestor; `FormRuntimeRoot` is optional.
+
+`FormField.Control` accepts a render function. It receives all field props: `value`, `onChange`, `onBlur`, `error`, `state`, `loading`, `options`. Wire them to any input component.
+
+```tsx
+import { FormField } from "formwright/react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function ProfileFields() {
+  return (
+    <div className="space-y-4">
+      {/* Text input */}
+      <FormField.Root path="name">
+        <FormField.Label />
+        <FormField.Control>
+          {({ value, onChange, onBlur, error, state }) => (
+            <Input
+              value={typeof value === "string" ? value : ""}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              disabled={state.disabled}
+              aria-invalid={Boolean(error)}
+            />
+          )}
+        </FormField.Control>
+        <FormField.Error />
+        <FormField.Help />
+      </FormField.Root>
+
+      {/* Select with datasource options */}
+      <FormField.Root path="role">
+        <FormField.Label />
+        <FormField.Control>
+          {({ value, onChange, options }) => (
+            <Select value={typeof value === "string" ? value : ""} onValueChange={onChange}>
+              <SelectTrigger><SelectValue placeholder="Choose role..." /></SelectTrigger>
+              <SelectContent>
+                {(options ?? []).map((opt) => (
+                  <SelectItem key={String(opt.value)} value={String(opt.value)}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField.Control>
+        <FormField.Error />
+      </FormField.Root>
+
+      {/* Default HTML input — no render function needed */}
+      <FormField.Root path="email">
+        <FormField.Label />
+        <FormField.Control />
+        <FormField.Error />
+      </FormField.Root>
+    </div>
+  );
+}
+```
+
+### `FormField` parts
+
+| Part | Description |
+|---|---|
+| `FormField.Root` | Required wrapper. Takes `path` prop. Provides field context to all descendant parts. |
+| `FormField.Label` | Renders the field label. Respects `accessibility.labelHidden`. |
+| `FormField.Description` | Renders `description` from the field schema. |
+| `FormField.Control` | Without children: renders default HTML input. With render function: passes `FormFieldControlRenderProps`. |
+| `FormField.Error` | Renders the validation error message. |
+| `FormField.Help` | Renders `helpText` from the field schema. |
+
+### `FormFieldControlRenderProps`
+
+```ts
+{
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;   // visible, disabled, readonly, required
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onBlur?: () => void;
+  loading?: boolean;           // datasource loading
+  options?: SelectOption[];    // datasource options
+}
+```
+
+## `FormArray` compound parts
+
+Use `FormArray` to manually compose array fields. `FormArray.Items` takes a render function called for each item.
+
+```tsx
+import { FormArray, FormField } from "formwright/react";
+import { Input } from "@/components/ui/input";
+
+function LineItemsField() {
+  return (
+    <FormArray.Root path="lineItems">
+      <FormArray.Header />
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <div className="grid grid-cols-3 gap-2">
+              <FormField.Root path={`lineItems.${index}.name`}>
+                <FormField.Control>
+                  {({ value, onChange }) => (
+                    <Input value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />
+                  )}
+                </FormField.Control>
+                <FormField.Error />
+              </FormField.Root>
+            </div>
+            <FormArray.Remove index={index}>Remove</FormArray.Remove>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+      <FormArray.Add>Add item</FormArray.Add>
+    </FormArray.Root>
+  );
+}
+```
+
+### `FormArray` parts
+
+| Part | Props | Description |
+|---|---|---|
+| `FormArray.Root` | `path` | Required wrapper. Provides array context. |
+| `FormArray.Header` | — | Renders label and description. |
+| `FormArray.Items` | `children: (item, index) => ReactNode` | Iterates over items, calls render function for each. |
+| `FormArray.Item` | `index` | Item shell wrapper. |
+| `FormArray.Add` | `children?` | Add-item button. Disabled when array is disabled/readonly. |
+| `FormArray.Remove` | `index`, `children?` | Remove-item button for a given index. |
 
 ## Option 1: Slots
 

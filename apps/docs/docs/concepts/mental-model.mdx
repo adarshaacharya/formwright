@@ -34,7 +34,7 @@ Schema  →  Runtime  →  Renderer
 
 1. `FormRuntimeProvider` watches RHF field values via `watch()`
 2. On each change, calls `runtime.evaluate(values)` — synchronous, pure
-3. Produces a snapshot: `{ fieldState, layoutState, values }`
+3. Produces a snapshot: `{ fieldState, layoutState, fieldOptions, values }`
 4. Passes snapshot to all children via React context
 5. `FormRuntimeRoot` walks the layout tree and renders each node
 

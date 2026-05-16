@@ -1,24 +1,109 @@
-import type {ReactNode} from 'react';
-import clsx from 'clsx';
-import Link from '@docusaurus/Link';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import Layout from '@theme/Layout';
-import Heading from '@theme/Heading';
+import type { ReactNode } from "react";
+import clsx from "clsx";
+import Link from "@docusaurus/Link";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import Layout from "@theme/Layout";
+import Heading from "@theme/Heading";
+import CodeBlock from "@theme/CodeBlock";
 
-import styles from './index.module.css';
+import styles from "./index.module.css";
+
+const INSTALL = `npm install formwright react-hook-form`;
+
+const QUICK_EXAMPLE = `import { defineForm, field, layout, rule, fieldRef, buildForm } from "formwright/schema";
+import { createFormRuntime } from "formwright/core";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+
+const form = buildForm({
+  form: defineForm({ id: "contact" }),
+  fields: [
+    field.select("type", { label: "Account type", options: [
+      { value: "individual", label: "Individual" },
+      { value: "company",    label: "Company" },
+    ]}),
+    field.text("name",        { label: "Full name",    required: true }),
+    field.text("companyName", { label: "Company name" }),
+  ],
+  layout: layout.stack("root", [
+    layout.field("type"),
+    layout.field("name"),
+    layout.field("companyName"),
+  ]),
+  rules: [
+    rule.when(fieldRef("type").eq("company")).show("companyName"),
+    rule.when(fieldRef("type").neq("company")).hide("companyName"),
+  ],
+});
+
+const runtime = createFormRuntime({ form, plugins: registerBasicPlugins() });
+
+export function ContactForm() {
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}`;
+
+const FEATURES = [
+  {
+    title: "Schema-driven",
+    description:
+      "Define fields, layout, rules, and data sources in plain TypeScript. No JSX in your form logic.",
+  },
+  {
+    title: "Conditional logic built in",
+    description:
+      "Show, hide, enable, disable, and require fields based on other values or runtime context — evaluated on every change, zero boilerplate.",
+  },
+  {
+    title: "Bring your own UI",
+    description:
+      "Works with shadcn/ui, Radix, Mantine, Ant Design, MUI, or your own design system. Use FormField compound parts or fieldRendererMap.",
+  },
+  {
+    title: "React Hook Form native",
+    description:
+      "Built on top of RHF. All RHF features work — resolvers, watch, setValue, manual submit handling.",
+  },
+  {
+    title: "Flexible validation",
+    description:
+      "Schema-driven field constraints map to RHF rules automatically. Pass a Zod or Yup resolver for cross-field validation.",
+  },
+  {
+    title: "Extensible via plugins",
+    description:
+      "Add custom operators, effects, field types, and data loaders. All built-in behavior ships as plugins.",
+  },
+];
+
+function Feature({ title, description }: { title: string; description: string }) {
+  return (
+    <div className={clsx("col col--4", styles.featureCard)}>
+      <h3>{title}</h3>
+      <p>{description}</p>
+    </div>
+  );
+}
 
 function HomepageHeader() {
-  const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+    <header className={clsx("hero hero--primary", styles.heroBanner)}>
       <div className="container">
         <Heading as="h1" className="hero__title">
-          {siteConfig.title}
+          Formwright
         </Heading>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p className="hero__subtitle">
+          Schema-driven form engine for React. Define your form once — runtime handles conditional logic, layout, validation, and data sources.
+        </p>
         <div className={styles.buttons}>
-          <Link className="button button--secondary button--lg" to="/docs">
-            Open Documentation
+          <Link className="button button--secondary button--lg" to="/docs/quickstart/getting-started">
+            Get started in 5 minutes
+          </Link>
+          <Link className={clsx("button button--outline button--secondary button--lg", styles.buttonSecondary)} to="/docs">
+            Browse docs
           </Link>
         </div>
       </div>
@@ -27,17 +112,67 @@ function HomepageHeader() {
 }
 
 export default function Home(): ReactNode {
-  const {siteConfig} = useDocusaurusContext();
+  const { siteConfig } = useDocusaurusContext();
+
   return (
-    <Layout title={siteConfig.title} description="Formwright technical documentation">
+    <Layout title={siteConfig.title} description="Schema-driven form engine for React — conditional logic, validation, and data sources built in.">
       <HomepageHeader />
-      <main className={styles.mainSection}>
-        <div className="container">
-          <p>
-            This site documents the Formwright architecture, package boundaries,
-            extension model, and runtime behavior.
-          </p>
-        </div>
+
+      <main>
+        {/* Install */}
+        <section className={styles.installSection}>
+          <div className="container">
+            <CodeBlock language="bash">{INSTALL}</CodeBlock>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className={styles.featuresSection}>
+          <div className="container">
+            <Heading as="h2" className={styles.sectionTitle}>Why Formwright</Heading>
+            <div className="row">
+              {FEATURES.map((f) => (
+                <Feature key={f.title} {...f} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Quick example */}
+        <section className={styles.exampleSection}>
+          <div className="container">
+            <Heading as="h2" className={styles.sectionTitle}>
+              Conditional fields in 30 lines
+            </Heading>
+            <p className={styles.sectionSubtitle}>
+              Define the rule in the schema. The engine evaluates it on every change — no{" "}
+              <code>useState</code>, no <code>useEffect</code>, no conditional rendering code.
+            </p>
+            <CodeBlock language="tsx">{QUICK_EXAMPLE}</CodeBlock>
+          </div>
+        </section>
+
+        {/* Start here links */}
+        <section className={styles.linksSection}>
+          <div className="container">
+            <Heading as="h2" className={styles.sectionTitle}>Start here</Heading>
+            <div className="row">
+              {[
+                { label: "Quick Start", desc: "First form in 5 minutes", to: "/docs/quickstart/getting-started" },
+                { label: "Mental Model", desc: "Schema → Runtime → Renderer", to: "/docs/concepts/mental-model" },
+                { label: "Customization", desc: "BYOC — use your design system", to: "/docs/guides/customization" },
+                { label: "API Reference", desc: "Full exported surface", to: "/docs/reference/schema-api" },
+              ].map(({ label, desc, to }) => (
+                <div key={label} className="col col--3">
+                  <Link className={styles.linkCard} to={to}>
+                    <strong>{label}</strong>
+                    <span>{desc}</span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
     </Layout>
   );

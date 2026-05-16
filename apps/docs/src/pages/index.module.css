@@ -15,8 +15,99 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
 }
 
-.mainSection {
-  padding: 2rem 0 3rem;
+.buttonSecondary {
+  margin-left: 0;
+}
+
+/* Install strip */
+.installSection {
+  padding: 2rem 0;
+  background: var(--ifm-color-emphasis-100);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.installSection pre {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Features */
+.featuresSection {
+  padding: 4rem 0;
+}
+
+.featureCard {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.featureCard h3 {
+  margin-bottom: 0.5rem;
+}
+
+/* Example */
+.exampleSection {
+  padding: 4rem 0;
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* Links */
+.linksSection {
+  padding: 4rem 0;
+}
+
+.linkCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 1rem;
+}
+
+.linkCard:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+  color: inherit;
+}
+
+.linkCard strong {
+  font-size: 1rem;
+}
+
+.linkCard span {
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+/* Shared */
+.sectionTitle {
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.sectionSubtitle {
+  text-align: center;
+  color: var(--ifm-color-emphasis-700);
+  max-width: 600px;
+  margin: 0 auto 2rem;
+}
+
+@media screen and (max-width: 996px) {
+  .featuresSection,
+  .exampleSection,
+  .linksSection {
+    padding: 2.5rem 1rem;
+  }
 }

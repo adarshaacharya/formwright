@@ -1,0 +1,408 @@
+---
+sidebar_position: 3
+---
+
+# React API
+
+```ts
+import {
+  FormRuntimeProvider, FormRuntimeRoot,
+  FormField, FormArray,
+  FieldComposer, ArrayComposer,
+  useFormField, useFormArray, useFormLayout, useDatasourceOptions,
+  useFormRuntime, useCreateFormRuntime, toRHFValidationRules,
+  createDefaultRendererMaps,
+} from "formwright/react";
+```
+
+## Compound components
+
+### `FormField`
+
+Compound component for composing a single field with your own inputs. Use inside `FormRuntimeProvider`. Does not require `FormRuntimeRoot`.
+
+```tsx
+import { FormField } from "formwright/react";
+
+<FormField.Root path="email">
+  <FormField.Label />
+  <FormField.Control>
+    {({ value, onChange, onBlur, error, state }) => (
+      <input
+        value={typeof value === "string" ? value : ""}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        disabled={state.disabled}
+        aria-invalid={Boolean(error)}
+      />
+    )}
+  </FormField.Control>
+  <FormField.Error />
+  <FormField.Help />
+</FormField.Root>
+```
+
+`FormField.Control` with no children renders the default HTML control for the field type.
+
+| Part | Props | Description |
+|---|---|---|
+| `FormField.Root` | `path: string` | Required wrapper — provides field context |
+| `FormField.Label` | — | Field label (respects `accessibility.labelHidden`) |
+| `FormField.Description` | — | Field description from schema |
+| `FormField.Control` | `children?: ReactNode \| (props) => ReactNode` | Default control or render function |
+| `FormField.Error` | — | Validation error message |
+| `FormField.Help` | — | Help text from schema |
+
+`FormField.Control` render function receives `FormFieldControlRenderProps`:
+
+```ts
+{
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onBlur?: () => void;
+  loading?: boolean;
+  options?: SelectOption[];
+}
+```
+
+### `FormArray`
+
+Compound component for composing array fields manually. Use inside `FormRuntimeProvider`.
+
+```tsx
+import { FormArray, FormField } from "formwright/react";
+
+<FormArray.Root path="items">
+  <FormArray.Header />
+  <FormArray.Items>
+    {(item, index) => (
+      <FormArray.Item key={item.id} index={index}>
+        <FormField.Root path={`items.${index}.name`}>
+          <FormField.Control />
+          <FormField.Error />
+        </FormField.Root>
+        <FormArray.Remove index={index} />
+      </FormArray.Item>
+    )}
+  </FormArray.Items>
+  <FormArray.Add>Add item</FormArray.Add>
+</FormArray.Root>
+```
+
+| Part | Props | Description |
+|---|---|---|
+| `FormArray.Root` | `path: string` | Required wrapper — provides array context |
+| `FormArray.Header` | — | Label and description |
+| `FormArray.Items` | `children: (item, index) => ReactNode` | Iterates items, calls render function |
+| `FormArray.Item` | `index: number` | Item shell wrapper |
+| `FormArray.Add` | `children?` | Add button. Disabled when array is disabled/readonly |
+| `FormArray.Remove` | `index: number`, `children?` | Remove button for item at index |
+
+## Components
+
+### `<FormRuntimeProvider>`
+
+Wraps the form in a React Hook Form `FormProvider` and wires the runtime engine. Must be an ancestor of `FormRuntimeRoot` and all form hooks.
+
+```tsx
+<FormRuntimeProvider
+  runtime={runtime}
+  initialValues={{ name: "Alice" }}
+  hiddenFieldPolicy="clear"
+>
+  <FormRuntimeRoot rootLayoutId="root" />
+</FormRuntimeProvider>
+```
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `runtime` | `FormRuntime` | required | From `createFormRuntime()` |
+| `initialValues` | `Record<string, unknown>` | `{}` | Pre-fill field values |
+| `validationResolver` | `Resolver` | — | Custom RHF resolver (Zod, Yup, etc.) |
+| `hiddenFieldPolicy` | `"keep" \| "unregister" \| "clear"` | `"keep"` | Behavior when a field becomes hidden |
+| `children` | `ReactNode` | required | |
+
+**`hiddenFieldPolicy`:**
+- `"keep"` — hidden field value stays in form state (default)
+- `"clear"` — hidden field value set to `undefined`
+- `"unregister"` — field unregistered from RHF
+
+### `<FormRuntimeRoot>`
+
+Resolves and renders the layout tree. Must be inside `FormRuntimeProvider`.
+
+```tsx
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldSlots={{ Label: MyLabel, Error: MyError }}
+  fieldRendererMap={{ select: MySelect, date: MyDatePicker }}
+/>
+```
+
+| Prop | Type | Description |
+|---|---|---|
+| `rootLayoutId` | `string` | ID of the root layout node to render |
+| `fieldSlots` | `FieldRendererSlots` | Slot overrides for field composition |
+| `arraySlots` | `ArrayRendererSlots` | Slot overrides for array field composition |
+| `fieldRendererMap` | `Record<string, FieldRendererComponent>` | Replace full renderer by field type key |
+| `arrayFieldRendererMap` | `Record<string, ArrayFieldRendererComponent>` | Replace array renderer by key |
+| `layoutRendererMap` | `Record<string, LayoutRendererComponent>` | Replace layout renderer by type |
+
+### `<FieldComposer>`
+
+Renders the standard field shell (label, description, control, error, help) around your custom control. Use inside custom `FieldRendererComponent` implementations.
+
+```tsx
+import { FieldComposer, type RenderFieldProps } from "formwright/react";
+
+function MyCustomRenderer(props: RenderFieldProps) {
+  return (
+    <FieldComposer
+      field={props.field}
+      state={props.state}
+      label={props.field.uiField?.label ?? props.field.path}
+      description={props.field.uiField?.description}
+      helpText={props.field.uiField?.helpText}
+      error={props.error}
+      slots={props.slots}
+    >
+      <input
+        value={typeof props.value === "string" ? props.value : ""}
+        onChange={(e) => props.onChange(e.target.value)}
+        onBlur={props.onBlur}
+      />
+    </FieldComposer>
+  );
+}
+```
+
+| Prop | Type | Description |
+|---|---|---|
+| `field` | `ResolvedFieldModel` | Field model |
+| `state` | `DerivedFieldState` | Derived state |
+| `label` | `string` | Required |
+| `description` | `string` | Optional |
+| `helpText` | `string` | Optional |
+| `error` | `string` | Optional |
+| `slots` | `FieldRendererSlots` | Slot overrides forwarded from parent |
+| `children` | `ReactNode` | The control element |
+
+### `<ArrayComposer>`
+
+Renders the array field shell (header, item shells, add/remove actions) around your custom array control.
+
+```tsx
+import { ArrayComposer, type RenderArrayProps } from "formwright/react";
+
+function MyArrayRenderer(props: RenderArrayProps) {
+  return (
+    <ArrayComposer
+      field={props.field}
+      state={props.state}
+      label={props.field.uiField?.label ?? props.field.path}
+      footer={<button onClick={() => props.append()}>Add item</button>}
+      slots={props.slots}
+    >
+      {props.items.map((item, index) => (
+        <div key={item.id}>
+          {/* render item fields */}
+          <button onClick={() => props.remove(index)}>Remove</button>
+        </div>
+      ))}
+    </ArrayComposer>
+  );
+}
+```
+
+## Hooks
+
+### `useFormField(path)`
+
+Returns field model, derived state, current value, and RHF-wired change handlers.
+
+```tsx
+const { field, state, value, error, setValue, onBlur } = useFormField("email");
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `field` | `ResolvedFieldModel` | Schema definition + UI metadata |
+| `state` | `DerivedFieldState` | `visible`, `disabled`, `readonly`, `required` |
+| `value` | `unknown` | Current deserialized field value |
+| `error` | `string \| undefined` | Validation error message |
+| `setValue(v)` | `(value: unknown) => void` | Update field value (serializes via field plugin) |
+| `onBlur()` | `() => void` | Trigger blur/validation |
+
+`DerivedFieldState` shape:
+
+```ts
+{
+  path: string;
+  visible: boolean;
+  disabled: boolean;
+  readonly: boolean;
+  required: boolean;
+  loading?: boolean;
+  errors?: string[];
+}
+```
+
+### `useFormArray(path)`
+
+Returns array state and RHF-wired append/remove handlers.
+
+```tsx
+const { items, append, remove, visible, disabled, readonly, itemType } = useFormArray("lineItems");
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `items` | `Array<{ id: string; value: unknown }>` | Current array items with stable IDs |
+| `append(value?)` | `(value?: unknown) => void` | Add an item (auto-builds default if omitted) |
+| `remove(index)` | `(index: number) => void` | Remove item at index |
+| `visible` | `boolean` | Derived visibility |
+| `disabled` | `boolean` | Derived disabled state |
+| `readonly` | `boolean` | Derived readonly state |
+| `itemType` | `"primitive" \| "object"` | Array item type from schema |
+
+### `useFormLayout(id)`
+
+Returns layout node and derived layout state.
+
+```tsx
+const { layout, state } = useFormLayout("shipping-section");
+// state.visible — whether the layout node is visible
+```
+
+### `useDatasourceOptions(path)`
+
+Loads options for a select field. Handles loading, caching, and re-fetch on dependency changes.
+
+```tsx
+const { options, loading, error } = useDatasourceOptions("country");
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `options` | `SelectOption[] \| undefined` | Loaded options |
+| `loading` | `boolean` | Fetch in progress |
+| `error` | `string \| undefined` | Load error message |
+
+### `useFormRuntime()`
+
+Returns the raw `FormRuntime` from context.
+
+```tsx
+const runtime = useFormRuntime();
+```
+
+### `useCreateFormRuntime(options)`
+
+Creates a `FormRuntime` inside React. Use when the runtime depends on props or state. Memoizes the runtime instance.
+
+```tsx
+function MyForm({ context }: { context: RuntimeContext }) {
+  const runtime = useCreateFormRuntime({
+    form,
+    plugins: registerBasicPlugins(),
+    context,
+  });
+
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## Slot interfaces
+
+### `FieldRendererSlots`
+
+```ts
+{
+  Shell?:       React.ComponentType<FieldShellSlotProps>;
+  Label?:       React.ComponentType<FieldLabelSlotProps>;
+  Description?: React.ComponentType<FieldDescriptionSlotProps>;
+  Control?:     React.ComponentType<FieldControlSlotProps>;
+  Error?:       React.ComponentType<FieldErrorSlotProps>;
+  Help?:        React.ComponentType<FieldHelpSlotProps>;
+}
+```
+
+| Slot | Key props |
+|---|---|
+| `Shell` | `field`, `state`, `children` |
+| `Label` | `field`, `state`, `label` |
+| `Description` | `field`, `state`, `description?` |
+| `Control` | `field`, `state`, `value`, `onChange`, `onBlur`, `error?`, `options?`, `loading?`, `defaultControl` |
+| `Error` | `field`, `state`, `error?` |
+| `Help` | `field`, `state`, `helpText?` |
+
+### `ArrayRendererSlots`
+
+```ts
+{
+  Shell?:     React.ComponentType<ArrayShellSlotProps>;
+  Header?:    React.ComponentType<ArrayHeaderSlotProps>;
+  ItemShell?: React.ComponentType<ArrayItemShellSlotProps>;
+  Actions?:   React.ComponentType<ArrayActionsSlotProps>;
+}
+```
+
+## `FieldRendererComponent`
+
+Type for components registered in `fieldRendererMap`:
+
+```ts
+type FieldRendererComponent = (props: RenderFieldProps) => React.JSX.Element | null;
+```
+
+`RenderFieldProps`:
+
+```ts
+{
+  path: string;
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onBlur?: () => void;
+  loading?: boolean;
+  options?: SelectOption[];
+  slots?: FieldRendererSlots;
+}
+```
+
+## `toRHFValidationRules(dataField, required)`
+
+Converts a field schema definition to React Hook Form `RegisterOptions`. Used inside custom renderers that call `useController` directly.
+
+```tsx
+import { toRHFValidationRules } from "formwright/react";
+
+const rules = toRHFValidationRules(field.definition, state.required);
+const { field: controller } = useController({ name: path, rules });
+```
+
+## `createDefaultRendererMaps()`
+
+Returns the default renderer maps. Spread these as a base and override specific keys:
+
+```tsx
+import { createDefaultRendererMaps } from "formwright/react";
+
+const { fieldRendererMap, arrayFieldRendererMap, layoutRendererMap } = createDefaultRendererMaps();
+
+<FormRuntimeRoot
+  rootLayoutId="root"
+  fieldRendererMap={{ ...fieldRendererMap, select: MySelect }}
+  arrayFieldRendererMap={arrayFieldRendererMap}
+  layoutRendererMap={layoutRendererMap}
+/>
+```

@@ -1,29 +1,72 @@
 ---
-sidebar_position: 6
+sidebar_position: 1
 ---
 
 # Glossary
 
-## Monorepo
+## Schema
 
-A single repository containing multiple packages and apps. In this project, `packages/*` are libraries and `apps/*` are runnable applications.
-
-## Contract
-
-Shared schema/type definitions that other layers depend on (`@formwright/contract`).
+The declarative definition of a form: fields, layout structure, behavior rules, and data sources. Built with `buildForm()` and passed to `createFormRuntime()`. Contains no runtime or React code.
 
 ## Runtime
 
-The evaluation engine that processes form definitions into derived field/layout/value state (`@formwright/core`).
+The evaluation engine (`createFormRuntime`). Takes a schema and current field values, runs all behavior rules, and returns derived state: which fields are visible, disabled, required; what values should be set. Synchronous and pure.
 
-## Adapter
+## Derived state
 
-A framework-specific integration layer that binds runtime output to UI/runtime framework APIs (`@formwright/react-rhf`).
-
-## Renderer Map
-
-A mapping from semantic renderer keys to concrete React components.
+The computed output of `runtime.evaluate(values)`. Contains `fieldState` (per-field visibility/disabled/required/readonly) and `layoutState` (per-layout-node visibility). React components subscribe to this via `FormRuntimeProvider`.
 
 ## Plugin
 
-An extension module that adds operator/effect/validator/datasource/field/layout behavior.
+An extension module that adds new behavior to the engine. Six kinds: `field`, `layout`, `operator`, `effect`, `validator`, `datasource`. Built-in plugins ship in `formwright/plugins`; custom plugins are plain objects implementing the plugin interface.
+
+## Operator
+
+A plugin that evaluates a rule condition expression. Examples: `eq`, `gt`, `in`, `exists`. Registered via the plugin array and matched by `operatorType`.
+
+## Effect
+
+A plugin that applies a mutation when a rule condition is true. Examples: `show`, `hide`, `require`, `setValue`. Matched by `effectType`.
+
+## Datasource
+
+A plugin that loads options for a `select` field. Can be `static` (inline) or `remote` (async HTTP). Registered via the plugin array and matched by `sourceType`.
+
+## Field slot
+
+A replaceable part of the default field composition shell. Available slots: `Shell`, `Label`, `Description`, `Control`, `Error`, `Help`. Passed via `fieldSlots` on `FormRuntimeRoot`.
+
+## Renderer map
+
+A `Record<string, RendererComponent>` that maps a semantic key to a React component. Used by `fieldRendererMap`, `arrayFieldRendererMap`, and `layoutRendererMap` on `FormRuntimeRoot`.
+
+## Renderer key
+
+The string key that maps a field or layout node to a renderer. Defaults to the field type (e.g., `"text"`, `"select"`, `"date"`). Override with `renderer` in field options or implement `getRendererKey` in a field plugin.
+
+## Field path
+
+Dot-notation string that identifies a field in the form value tree. Examples: `"email"`, `"address.city"`, `"lineItems.0.name"`. Used in rules, hooks, and RHF registration.
+
+## `FormDefinition`
+
+The compiled schema object produced by `buildForm()`. Consumed by `createFormRuntime()`. Not meant to be constructed manually — use the schema builder helpers instead.
+
+## `FormRuntime`
+
+The engine instance returned by `createFormRuntime()`. Holds the plugin registry, resolved field models, and evaluation logic. Passed to `FormRuntimeProvider`.
+
+## `RuntimeContext`
+
+Arbitrary context passed to `createFormRuntime({ context })`. Available in rules via `contextRef()` and in all plugin inputs as `input.context`. Typed shape:
+
+```ts
+{
+  mode?: "create" | "edit" | "view";
+  userRole?: string;
+  locale?: string;
+  baseUrl?: string;
+  featureFlags?: Record<string, boolean | string | number>;
+  meta?: Record<string, unknown>;
+}
+```

@@ -1,0 +1,214 @@
+---
+sidebar_position: 4
+---
+
+# Plugins API
+
+```ts
+import { registerBasicPlugins, registerAsyncPlugins } from "formwright/plugins";
+```
+
+## `registerBasicPlugins()`
+
+Returns built-in operator and effect plugins. Always include this in your plugin array.
+
+```ts
+const runtime = createFormRuntime({
+  form,
+  plugins: registerBasicPlugins(),
+});
+```
+
+### Included operator plugins
+
+| Plugin | Operator type | Behavior |
+|---|---|---|
+| `eqOperatorPlugin` | `eq` | Strict equality |
+| `neqOperatorPlugin` | `neq` | Strict inequality |
+| `andOperatorPlugin` | `and` | All sub-expressions true |
+| `orOperatorPlugin` | `or` | Any sub-expression true |
+| `notOperatorPlugin` | `not` | Negates expression |
+| `existsOperatorPlugin` | `exists` | Value is non-empty |
+| `gtOperatorPlugin` | `gt` | Greater than |
+| `gteOperatorPlugin` | `gte` | Greater than or equal |
+| `ltOperatorPlugin` | `lt` | Less than |
+| `lteOperatorPlugin` | `lte` | Less than or equal |
+| `inOperatorPlugin` | `in` | Value is in array |
+
+### Included effect plugins
+
+| Plugin | Effect type | Behavior |
+|---|---|---|
+| `showEffectPlugin` | `show` | Set `visible: true` |
+| `hideEffectPlugin` | `hide` | Set `visible: false` |
+| `enableEffectPlugin` | `enable` | Set `disabled: false` |
+| `disableEffectPlugin` | `disable` | Set `disabled: true` |
+| `requireEffectPlugin` | `require` | Set `required` state |
+| `setValueEffectPlugin` | `setValue` | Push value mutation |
+| `clearValueEffectPlugin` | `clearValue` | Push `undefined` value mutation |
+| `setLayoutPropEffectPlugin` | `setLayoutProp` | Patch layout node state |
+
+## `registerAsyncPlugins(options?)`
+
+Returns static and remote datasource plugins. Required when any field uses `dataSource`.
+
+```ts
+const runtime = createFormRuntime({
+  form,
+  plugins: [
+    ...registerBasicPlugins(),
+    ...registerAsyncPlugins(),
+    // or with a base URL for relative endpoints:
+    ...registerAsyncPlugins({ baseUrl: "https://api.example.com" }),
+  ],
+});
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `baseUrl` | `string` | Prepended to relative datasource endpoints |
+| `fetchImpl` | `typeof fetch` | Custom fetch implementation (for testing or SSR) |
+
+## Plugin interfaces
+
+All plugin interfaces are in `formwright/core`.
+
+### `OperatorPlugin`
+
+```ts
+interface OperatorPlugin {
+  kind: "operator";
+  identity: PluginIdentity;
+  operatorType: string;
+  evaluate: (input: OperatorEvaluateInput) => unknown;
+}
+
+interface OperatorEvaluateInput {
+  expression: Record<string, unknown>;
+  values: Record<string, unknown>;
+  context: RuntimeContext;
+}
+```
+
+### `EffectPlugin`
+
+```ts
+interface EffectPlugin {
+  kind: "effect";
+  identity: PluginIdentity;
+  effectType: string;
+  apply: (input: EffectApplyInput) => EffectApplyResult;
+}
+
+interface EffectApplyInput {
+  effect: RuleEffect;
+  values: Record<string, unknown>;
+  derivedState: DerivedStateSnapshot;
+  context: RuntimeContext;
+}
+
+interface EffectApplyResult {
+  fieldMutations?:  Array<{ path: string; patch: Partial<DerivedFieldState> }>;
+  layoutMutations?: Array<{ id: string; patch: Partial<DerivedLayoutState> }>;
+  valueMutations?:  Array<{ path: string; value: unknown }>;
+}
+```
+
+### `FieldPlugin`
+
+```ts
+interface FieldPlugin {
+  kind: "field";
+  identity: PluginIdentity;
+  fieldType: string;
+  normalize?: (input: FieldPluginNormalizeInput) => FieldPluginNormalizeOutput;
+  getDefaultValue?: (input: FieldDefaultValueInput) => unknown;
+  getValidationPlan?: (input: FieldValidationPlanInput) => ValidationPlanItem[];
+  getRendererKey?: (input: FieldRendererKeyInput) => string;
+  serialize?: (input: FieldSerializeInput) => unknown;
+  deserialize?: (input: FieldDeserializeInput) => unknown;
+}
+
+interface FieldPluginNormalizeOutput {
+  fieldType: string;
+  normalizedDataField: DataFieldDefinition;
+  normalizedUiField?: UiFieldNode;
+}
+```
+
+`ValidationPlanItem` shape:
+
+```ts
+{ validatorType: string }
+```
+
+### `DataSourcePlugin`
+
+```ts
+interface DataSourcePlugin {
+  kind: "datasource";
+  identity: PluginIdentity;
+  sourceType: string;
+  load: (input: DataSourceLoadInput) => Promise<DataSourceLoadResult>;
+}
+
+interface DataSourceLoadInput {
+  source: DataSourceDefinition;
+  dependsOnValues: Record<string, unknown>;
+  context: RuntimeContext;
+}
+
+interface DataSourceLoadResult {
+  options?: Array<{ value: string | number | boolean; label: string }>;
+  meta?: Record<string, unknown>;
+}
+```
+
+### `ValidatorPlugin`
+
+```ts
+interface ValidatorPlugin {
+  kind: "validator";
+  identity: PluginIdentity;
+  validatorType: string;
+  supports: (input: ValidatorSupportsInput) => boolean;
+  validate: (input: ValidatorRunInput) => ValidationResult;
+}
+```
+
+### `PluginIdentity`
+
+```ts
+interface PluginIdentity {
+  name: string;
+  version?: string;
+}
+```
+
+Use a namespaced name to avoid collisions with built-in plugins:
+
+```ts
+identity: { name: "my-app/custom-operator", version: "1" }
+```
+
+Registering two plugins with the same `identity.name` throws `DuplicatePluginError`.
+
+## `createRemoteDataSourcePlugin(options?)`
+
+Creates a datasource plugin for remote HTTP endpoints with custom fetch logic.
+
+```ts
+import { createRemoteDataSourcePlugin } from "formwright/plugins";
+
+const plugin = createRemoteDataSourcePlugin({
+  fetchImpl: authenticatedFetch,   // custom fetch with auth headers
+});
+```
+
+## `createStaticDataSourcePlugin()`
+
+Creates a datasource plugin for static inline options. Already included in `registerAsyncPlugins()`.
+
+```ts
+import { createStaticDataSourcePlugin } from "formwright/plugins";
+```
