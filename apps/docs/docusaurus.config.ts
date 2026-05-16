@@ -1,21 +1,10 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
+import { themes as prismThemes } from 'prism-react-renderer';
+import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
-async function fetchNpmVersion(): Promise<string> {
-  try {
-    const res = await fetch('https://registry.npmjs.org/formwright/latest');
-    const data = await res.json() as { version: string };
-    return data.version;
-  } catch {
-    return '';
-  }
-}
 
-const npmVersion = await fetchNpmVersion();
 
 const config: Config = {
-  customFields: { npmVersion },
   title: 'Formwright Docs',
   tagline: 'Schema-driven form engine documentation',
   favicon: 'img/favicon.ico',
@@ -35,7 +24,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/adarsha/formwright/tree/main/apps/docs/',
+          editUrl: 'https://github.com/adarshaacharya/formwright/tree/main/apps/docs/',
         },
         blog: false,
         theme: {
@@ -63,7 +52,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/adarsha/formwright',
+          href: 'https://github.com/adarshaacharya/formwright',
           label: 'GitHub',
           position: 'right',
         },
@@ -86,14 +75,41 @@ const config: Config = {
           ],
         },
         {
-          title: 'Repository',
+          title: 'Links',
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/adarsha/formwright',
+              href: 'https://github.com/adarshaacharya/formwright',
+            },
+            {
+              label: 'npm',
+              href: 'https://www.npmjs.com/package/formwright',
             },
           ],
         },
+        {
+          title: "Contact",
+          items: [
+            {
+              label: 'Email',
+              href: 'mailto:hi@adarsha.dev',
+            },
+            {
+              label: 'Twitter',
+              href: 'https://x.com/adarshaach',
+            },
+            {
+              label: 'LinkedIn',
+              href: 'https://www.linkedin.com/in/adarshaacharya/',
+            },
+            {
+              label: 'GitHub',
+              href: 'https://github.com/adarshaacharya',
+            },
+          ],
+
+        }
+
       ],
       copyright: `Copyright © ${new Date().getFullYear()} Formwright.`,
     },
