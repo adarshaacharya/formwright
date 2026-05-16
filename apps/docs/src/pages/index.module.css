@@ -32,8 +32,8 @@
   border-bottom: 1px solid var(--ifm-color-emphasis-200);
 }
 
-.installSection pre {
-  max-width: 400px;
+.installBlock {
+  max-width: 480px;
   margin: 0 auto;
 }
 

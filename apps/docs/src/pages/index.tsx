@@ -5,46 +5,9 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import Heading from "@theme/Heading";
 import CodeBlock from "@theme/CodeBlock";
-
 import styles from "./index.module.css";
 
 const INSTALL = `npm install formwright react-hook-form`;
-
-const QUICK_EXAMPLE = `import { defineForm, field, layout, rule, fieldRef, buildForm } from "formwright/schema";
-import { createFormRuntime } from "formwright/core";
-import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
-import { registerBasicPlugins } from "formwright/plugins";
-
-const form = buildForm({
-  form: defineForm({ id: "contact" }),
-  fields: [
-    field.select("type", { label: "Account type", options: [
-      { value: "individual", label: "Individual" },
-      { value: "company",    label: "Company" },
-    ]}),
-    field.text("name",        { label: "Full name",    required: true }),
-    field.text("companyName", { label: "Company name" }),
-  ],
-  layout: layout.stack("root", [
-    layout.field("type"),
-    layout.field("name"),
-    layout.field("companyName"),
-  ]),
-  rules: [
-    rule.when(fieldRef("type").eq("company")).show("companyName"),
-    rule.when(fieldRef("type").neq("company")).hide("companyName"),
-  ],
-});
-
-const runtime = createFormRuntime({ form, plugins: registerBasicPlugins() });
-
-export function ContactForm() {
-  return (
-    <FormRuntimeProvider runtime={runtime}>
-      <FormRuntimeRoot rootLayoutId="root" />
-    </FormRuntimeProvider>
-  );
-}`;
 
 const FEATURES = [
   {
@@ -122,7 +85,9 @@ export default function Home(): ReactNode {
         {/* Install */}
         <section className={styles.installSection}>
           <div className="container">
-            <CodeBlock language="bash">{INSTALL}</CodeBlock>
+            <div className={styles.installBlock}>
+              <CodeBlock language="bash">{INSTALL}</CodeBlock>
+            </div>
           </div>
         </section>
 
@@ -135,20 +100,6 @@ export default function Home(): ReactNode {
                 <Feature key={f.title} {...f} />
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* Quick example */}
-        <section className={styles.exampleSection}>
-          <div className="container">
-            <Heading as="h2" className={styles.sectionTitle}>
-              Conditional fields in 30 lines
-            </Heading>
-            <p className={styles.sectionSubtitle}>
-              Define the rule in the schema. The engine evaluates it on every change — no{" "}
-              <code>useState</code>, no <code>useEffect</code>, no conditional rendering code.
-            </p>
-            <CodeBlock language="tsx">{QUICK_EXAMPLE}</CodeBlock>
           </div>
         </section>
 
