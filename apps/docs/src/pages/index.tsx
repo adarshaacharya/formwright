@@ -7,7 +7,7 @@ import Heading from "@theme/Heading";
 import CodeBlock from "@theme/CodeBlock";
 import styles from "./index.module.css";
 
-const INSTALL = `npm install formwright react-hook-form`;
+const INSTALL = `npm install formwright@latest react-hook-form`;
 
 const FEATURES = [
   {

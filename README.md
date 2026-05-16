@@ -9,7 +9,7 @@ Schema-driven form engine for React. Define fields, layout, rules, and data sour
 ## Install
 
 ```bash
-npm install formwright react-hook-form
+npm install formwright@latest react-hook-form
 ```
 
 ## Quick example
