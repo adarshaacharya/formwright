@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/formwright-icon.svg" alt="Formwright" width="32" height="32" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/formwright-icon-dark.svg" />
+    <img src="assets/formwright-icon.svg" alt="Formwright" width="48" height="48" />
+  </picture>
 </p>
 
 <h1 align="center">Formwright</h1>
