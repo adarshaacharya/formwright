@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/formwright-icon-dark.svg" />
-    <img src="assets/formwright-icon.svg" alt="Formwright" width="48" height="48" />
+    <img src="assets/formwright-icon.svg" alt="Formwright" width="32" height="32" />
   </picture>
 </p>
 
