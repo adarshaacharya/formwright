@@ -7,9 +7,11 @@
 
 <h1 align="center">Formwright</h1>
 
-[![npm version](https://img.shields.io/npm/v/formwright)](https://www.npmjs.com/package/formwright)
-[![npm downloads](https://img.shields.io/npm/dm/formwright)](https://www.npmjs.com/package/formwright)
-[![license](https://img.shields.io/npm/l/formwright)](./LICENSE)
+<p align="center">
+  <a href="https://www.npmjs.com/package/formwright"><img src="https://img.shields.io/npm/v/formwright" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/formwright"><img src="https://img.shields.io/npm/dm/formwright" alt="npm downloads" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/formwright" alt="license" /></a>
+</p>
 
 Schema-driven form engine for React. Define fields, layout, rules, and data sources in TypeScript — the runtime handles conditional logic, validation, and rendering.
 
