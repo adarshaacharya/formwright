@@ -1,0 +1,193 @@
+---
+sidebar_position: 8
+---
+
+# Remote Schemas
+
+Formwright can render form schemas provided by your backend at runtime. The runtime stays transport-agnostic: your app loads a payload, validates it, then passes the resulting `form` into `createFormRuntime()`.
+
+Use this when:
+
+- your backend stores form definitions as JSON
+- schemas vary by tenant, role, or workflow
+- you want REST, RPC, GraphQL, or server-rendered payloads to feed the same frontend runtime
+
+## Mental model
+
+The flow is:
+
+1. Your backend returns a `RemoteFormPayload`
+2. `formwright/remote` validates the payload at runtime
+3. Your app creates a runtime from `payload.form`
+4. `formwright/react` renders the form
+
+Formwright does **not** require a specific transport. It owns the schema contract and validation layer, not your networking stack.
+
+## `RemoteFormPayload`
+
+The transport contract is:
+
+```ts
+import type { RemoteFormPayload } from "formwright/remote";
+
+const payload: RemoteFormPayload = {
+  version: "1.0",
+  form: {
+    version: "1.0",
+    formId: "profile",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        name: { valueType: "string", required: true },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        name: { fieldType: "text", label: "Name" },
+      },
+      layout: {
+        type: "stack",
+        id: "root",
+        children: [{ type: "field", ref: "name" }],
+      },
+    },
+  },
+  initialValues: {
+    name: "Ada Lovelace",
+  },
+  meta: {
+    schemaId: "profile",
+    schemaVersion: "2026-05-16",
+  },
+};
+```
+
+## REST example
+
+Use `loadRemoteForm()` when you want a simple `fetch`-based loader:
+
+```tsx
+import { registerBasicPlugins, registerAsyncPlugins } from "formwright/plugins";
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime, useRemoteFormDefinition } from "formwright/react";
+import { loadRemoteForm } from "formwright/remote";
+
+function RemoteProfileForm() {
+  const { status, isFetching, payload, error } = useRemoteFormDefinition({
+    key: "profile-form",
+    loader: ({ signal }) =>
+      loadRemoteForm({
+        url: "/api/forms/profile",
+        init: { signal },
+      }),
+    staleTimeMs: 60_000,
+    retry: 1,
+  });
+
+  if (status === "loading") return <div>Loading form...</div>;
+  if (status === "error") return <div>{error?.message}</div>;
+  if (!payload) return null;
+
+  const runtime = useCreateFormRuntime({
+    form: payload.form,
+    plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+  });
+
+  return (
+    <>
+      {isFetching ? <div>Refreshing schema...</div> : null}
+      <FormRuntimeProvider runtime={runtime} initialValues={payload.initialValues}>
+        <FormRuntimeRoot rootLayoutId="root" />
+      </FormRuntimeProvider>
+    </>
+  );
+}
+```
+
+## RPC or SDK example
+
+For RPC, GraphQL, tRPC, or internal SDKs, provide your own `loader` function. The hook only requires a function that returns `RemoteFormPayload`.
+
+```tsx
+import { useRemoteFormDefinition } from "formwright/react";
+import { parseRemoteFormPayload } from "formwright/remote";
+
+function useProfileFormFromRpc() {
+  return useRemoteFormDefinition({
+    key: "profile-form",
+    loader: async ({ signal }) => {
+      const response = await myRpcClient.forms.getProfile({ signal });
+      return parseRemoteFormPayload(response);
+    },
+    staleTimeMs: 30_000,
+    retry: 2,
+  });
+}
+```
+
+The important boundary is:
+
+- Formwright validates and renders the payload
+- your app decides how the payload gets fetched
+
+## Server-rendered or SSR example
+
+If the schema is already available on the server, validate it once and pass it into the runtime directly:
+
+```tsx
+import { parseRemoteFormPayload } from "formwright/remote";
+
+const payload = parseRemoteFormPayload(serverPayload);
+
+const runtime = createFormRuntime({
+  form: payload.form,
+  plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
+});
+```
+
+This is useful for Next.js server components, route loaders, or server-rendered pages that hydrate with an already-validated schema.
+
+## Validation failures
+
+`parseRemoteFormPayload()` and `loadRemoteForm()` throw `RemoteSchemaValidationError` when the payload shape is invalid.
+
+Typical failures include:
+
+- unsupported payload or form version
+- missing `formId`
+- malformed `dataSchema.fields`
+- layout nodes that reference unknown fields
+- invalid lifecycle action definitions
+
+This gives you a safe boundary between backend JSON and the runtime engine.
+
+## Refresh and cache behavior
+
+`useRemoteFormDefinition()` is designed for application-scale loading, not just one-off fetch calls.
+
+In practice, that means:
+
+- payloads can be reused while still fresh
+- repeated mounts using the same `key` do not refetch unnecessarily
+- failed loads can retry with backoff
+- `reload()` forces a fresh request
+- `invalidate()` clears the cached entry for that key
+
+Use these options to tune behavior:
+
+- `staleTimeMs` controls how long a payload stays fresh
+- `cacheTimeMs` controls how long an unused cache entry is kept
+- `retry` and `retryDelayMs` control retry behavior
+
+## When to use this vs schema builder
+
+Use `formwright/schema` when your frontend authors schemas in TypeScript.
+
+Use `formwright/remote` when your backend, CMS, registry, or config service delivers schemas at runtime.
+
+Both paths converge on the same runtime:
+
+```ts
+createFormRuntime({ form })
+```
+
+See [React API](../reference/react-api) for `useRemoteFormDefinition()` and [Remote API](../reference/remote-api) for the full helper reference.

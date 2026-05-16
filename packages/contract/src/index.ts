@@ -51,3 +51,5 @@ export type {
 } from "./ui-schema/types";
 
 export type { FormDefinition, FormMeta } from "./form-definition/types";
+
+export type { RemoteFormPayload, RemoteFormPayloadMeta } from "./remote-form/types";

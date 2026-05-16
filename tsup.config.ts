@@ -8,6 +8,7 @@ export default defineConfig({
     schema: "src/schema.ts",
     react: "src/react.ts",
     plugins: "src/plugins.ts",
+    remote: "src/remote.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

@@ -11,7 +11,11 @@ import type {
   ResolvedFieldModel,
   ResolvedLayoutModel,
 } from "@formwright/core";
-import type { ArrayFieldDefinition, DataFieldDefinition } from "@formwright/contract";
+import type {
+  ArrayFieldDefinition,
+  DataFieldDefinition,
+  RemoteFormPayload,
+} from "@formwright/contract";
 import type { Resolver } from "react-hook-form";
 
 export interface UseFormRuntimeOptions extends CreateFormRuntimeInput {
@@ -265,4 +269,35 @@ export interface UseFormLifecycleResult {
   runLifecycle: (stage: LifecycleStage) => Promise<LifecycleExecutionResult>;
   runOnLoad: () => Promise<LifecycleExecutionResult>;
   runOnSubmit: () => Promise<LifecycleExecutionResult>;
+}
+
+export interface RemoteFormLoaderContext {
+  key: string;
+  signal: AbortSignal;
+}
+
+export type RemoteFormLoader = (context: RemoteFormLoaderContext) => Promise<RemoteFormPayload>;
+
+export type RemoteFormRetryDelay =
+  | number
+  | ((attempt: number, error: Error) => number);
+
+export interface UseRemoteFormDefinitionOptions {
+  key?: string;
+  loader: RemoteFormLoader;
+  autoLoad?: boolean;
+  staleTimeMs?: number;
+  cacheTimeMs?: number;
+  retry?: number;
+  retryDelayMs?: RemoteFormRetryDelay;
+}
+
+export interface UseRemoteFormDefinitionResult {
+  status: "idle" | "loading" | "success" | "error";
+  isFetching: boolean;
+  payload?: RemoteFormPayload;
+  error?: Error;
+  updatedAt?: number;
+  reload: () => Promise<void>;
+  invalidate: () => void;
 }

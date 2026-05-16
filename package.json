@@ -44,6 +44,11 @@
       "types": "./dist/plugins.d.ts",
       "import": "./dist/plugins.js",
       "require": "./dist/plugins.cjs"
+    },
+    "./remote": {
+      "types": "./dist/remote.d.ts",
+      "import": "./dist/remote.js",
+      "require": "./dist/remote.cjs"
     }
   },
   "publishConfig": {

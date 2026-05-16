@@ -9,7 +9,7 @@ import {
   FormRuntimeProvider, FormRuntimeRoot,
   FormField, FormArray,
   FieldComposer, ArrayComposer,
-  useFormField, useFormArray, useFormLayout, useDatasourceOptions,
+  useFormField, useFormArray, useFormLayout, useDatasourceOptions, useRemoteFormDefinition,
   useFormRuntime, useCreateFormRuntime, toRHFValidationRules,
   createDefaultRendererMaps,
 } from "formwright/react";
@@ -290,6 +290,45 @@ const { options, loading, error } = useDatasourceOptions("country");
 | `options` | `SelectOption[] \| undefined` | Loaded options |
 | `loading` | `boolean` | Fetch in progress |
 | `error` | `string \| undefined` | Load error message |
+
+### `useRemoteFormDefinition(options)`
+
+Loads and caches backend-provided `RemoteFormPayload` values. Transport-agnostic: use REST, RPC, GraphQL, or any custom loader.
+
+```tsx
+const { status, isFetching, payload, error, reload, invalidate } = useRemoteFormDefinition({
+  key: "profile-form",
+  loader: ({ signal }) =>
+    loadRemoteForm({
+      url: "/api/forms/profile",
+      init: { signal },
+    }),
+  staleTimeMs: 60_000,
+  retry: 1,
+});
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `key` | `string` | Cache key for dedupe and reuse |
+| `loader` | `({ key, signal }) => Promise<RemoteFormPayload>` | Required async loader |
+| `autoLoad` | `boolean` | Auto-load on mount. Default `true` |
+| `staleTimeMs` | `number` | Reuse cached payload while fresh |
+| `cacheTimeMs` | `number` | Keep cache entry alive after load |
+| `retry` | `number` | Retry count for failed loads |
+| `retryDelayMs` | `number \| ((attempt, error) => number)` | Retry delay or backoff function |
+
+| Property | Type | Description |
+|---|---|---|
+| `status` | `"idle" \| "loading" \| "success" \| "error"` | Overall state |
+| `isFetching` | `boolean` | Request currently in flight |
+| `payload` | `RemoteFormPayload \| undefined` | Validated payload |
+| `error` | `Error \| undefined` | Last load error |
+| `updatedAt` | `number \| undefined` | Last successful load timestamp |
+| `reload()` | `() => Promise<void>` | Force a fresh request |
+| `invalidate()` | `() => void` | Clear local cache entry |
+
+Use this hook when your schema comes from the backend. See [Remote Schemas](../guides/remote-schemas) for the full integration flow.
 
 ### `useFormRuntime()`
 

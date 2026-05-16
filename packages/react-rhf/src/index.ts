@@ -30,6 +30,9 @@ export type {
   UseFormArrayResult,
   UseFormLayoutResult,
   UseFormLifecycleResult,
+  RemoteFormLoader,
+  UseRemoteFormDefinitionOptions,
+  UseRemoteFormDefinitionResult,
   UseDatasourceOptionsResult,
   RenderFieldProps,
   RenderArrayProps,
@@ -48,6 +51,7 @@ export { useFormField } from "./hooks/use-form-field";
 export { useFormArray } from "./hooks/use-form-array";
 export { useFormLayout } from "./hooks/use-form-layout";
 export { useDatasourceOptions } from "./hooks/use-datasource-options";
+export { useRemoteFormDefinition } from "./hooks/use-remote-form-definition";
 export { toRHFValidationRules } from "./validation/to-rhf-validation-rules";
 export {
   DefaultField,

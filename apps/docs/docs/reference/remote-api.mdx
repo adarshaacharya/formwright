@@ -1,0 +1,144 @@
+---
+sidebar_position: 6
+---
+
+# Remote API
+
+```ts
+import {
+  loadRemoteForm,
+  parseFormDefinition,
+  parseRemoteFormPayload,
+  RemoteSchemaValidationError,
+} from "formwright/remote";
+```
+
+The remote package provides a typed validation boundary for backend-provided schemas.
+
+## `RemoteFormPayload`
+
+```ts
+interface RemoteFormPayload {
+  version: "1.0";
+  form: FormDefinition;
+  initialValues?: Record<string, unknown>;
+  meta?: {
+    schemaId?: string;
+    schemaVersion?: string;
+    etag?: string;
+    source?: string;
+  };
+}
+```
+
+Use it as the transport contract between backend and frontend.
+
+## `parseFormDefinition(input)`
+
+Validates a raw value and returns a typed `FormDefinition`.
+
+```ts
+const form = parseFormDefinition(rawFormJson);
+```
+
+The parser checks:
+
+- `version`
+- `formId`
+- `dataSchema.fields`
+- `uiSchema.layout`
+- field references inside layout nodes
+- `behaviorSchema` structure
+
+Throws `RemoteSchemaValidationError` on invalid input.
+
+## `parseRemoteFormPayload(input)`
+
+Validates the full remote payload:
+
+```ts
+const payload = parseRemoteFormPayload(rawPayload);
+```
+
+This validates:
+
+- payload `version`
+- `form`
+- optional `initialValues`
+- optional `meta`
+
+Use this when your app already has the payload in memory and you only need validation.
+
+## `loadRemoteForm(options)`
+
+Fetches JSON and validates it as `RemoteFormPayload`.
+
+```ts
+const payload = await loadRemoteForm({
+  url: "/api/forms/profile",
+});
+```
+
+### Options
+
+| Option | Type | Description |
+|---|---|---|
+| `url` | `string` | Request URL |
+| `fetcher` | `typeof fetch` | Optional custom fetch implementation |
+| `headers` | `HeadersInit` | Additional request headers |
+| `init` | `RequestInit` | Standard fetch options |
+
+Example with auth headers:
+
+```ts
+const payload = await loadRemoteForm({
+  url: "/api/forms/profile",
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+Example with abort support:
+
+```ts
+const payload = await loadRemoteForm({
+  url: "/api/forms/profile",
+  init: {
+    signal,
+  },
+});
+```
+
+## `RemoteSchemaValidationError`
+
+Thrown when a remote payload or form definition fails validation.
+
+```ts
+try {
+  const payload = parseRemoteFormPayload(rawPayload);
+} catch (error) {
+  if (error instanceof RemoteSchemaValidationError) {
+    console.error(error.issues);
+  }
+}
+```
+
+### Shape
+
+```ts
+interface RemoteSchemaIssue {
+  path: string;
+  message: string;
+}
+```
+
+Each issue points to the failing path so backend/frontend teams can debug payload mismatches quickly.
+
+## Recommended usage
+
+- Use `loadRemoteForm()` for REST
+- Use `parseRemoteFormPayload()` for RPC, GraphQL, or server-rendered payloads
+- Pass the validated `payload.form` into `createFormRuntime()`
+
+See [Remote Schemas](../guides/remote-schemas) for end-to-end integration examples.
