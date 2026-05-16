@@ -1,5 +1,7 @@
 import type {
   CreateFormRuntimeInput,
+  LifecycleExecutionResult,
+  LifecycleStage,
   DataSourceLoadResult,
   DerivedFieldState,
   DerivedLayoutState,
@@ -31,6 +33,45 @@ export interface FormRuntimeRootProps {
   layoutRendererMap?: Record<string, LayoutRendererComponent>;
   fieldSlots?: FieldRendererSlots;
   arraySlots?: ArrayRendererSlots;
+}
+
+export interface FormFieldRootProps {
+  path: string;
+  children?: React.ReactNode;
+}
+
+export interface FormFieldControlRenderProps {
+  field: ResolvedFieldModel;
+  state: DerivedFieldState;
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onBlur?: () => void;
+  loading?: boolean;
+  options?: DataSourceLoadResult["options"];
+}
+
+export interface FormFieldControlProps {
+  children?: React.ReactNode | ((props: FormFieldControlRenderProps) => React.ReactNode);
+}
+
+export interface FormArrayRootProps {
+  path: string;
+  children?: React.ReactNode;
+}
+
+export interface FormArrayItemsProps {
+  children: (item: { id: string; value: unknown }, index: number) => React.ReactNode;
+}
+
+export interface FormArrayItemProps {
+  index: number;
+  children?: React.ReactNode;
+}
+
+export interface FormArrayRemoveProps {
+  index: number;
+  children?: React.ReactNode;
 }
 
 interface FieldRendererBaseProps {
@@ -218,4 +259,10 @@ export interface ArrayComposerProps {
 export interface FormRuntimeSnapshot {
   context?: RuntimeContext;
   evaluation: RuntimeEvaluationResult;
+}
+
+export interface UseFormLifecycleResult {
+  runLifecycle: (stage: LifecycleStage) => Promise<LifecycleExecutionResult>;
+  runOnLoad: () => Promise<LifecycleExecutionResult>;
+  runOnSubmit: () => Promise<LifecycleExecutionResult>;
 }

@@ -36,6 +36,7 @@ import { createFormRuntime, defineForm } from "formwright";
 import { defineForm, buildForm } from "formwright/schema";
 import { field, layout } from "formwright/schema";
 import { createFormRuntime } from "formwright/core";
+import { useFormContext } from "react-hook-form";
 import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
 import { registerBasicPlugins } from "formwright/plugins";
 
@@ -54,11 +55,119 @@ const runtime = createFormRuntime({
   context: { mode: "create" },
 });
 
+function ProfileFormBody() {
+  const { handleSubmit } = useFormContext();
+
+  return (
+    <form onSubmit={handleSubmit((values) => console.log(values))}>
+      <FormRuntimeRoot rootLayoutId="root" />
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+
 export function ProfileForm() {
   return (
     <FormRuntimeProvider runtime={runtime}>
-      <FormRuntimeRoot rootLayoutId="root" />
+      <ProfileFormBody />
     </FormRuntimeProvider>
+  );
+}
+```
+
+`Formwright` renders the form and manages runtime behavior. Submission stays in user code through React Hook Form's `handleSubmit`.
+
+## React API Shape
+
+`formwright/react` is designed with three layers:
+
+1. `FormRuntimeProvider` + `FormRuntimeRoot` for fast form rendering
+2. `fieldSlots` / `arraySlots` for global theming of stable parts
+3. `FormField.*` / `FormArray.*` for direct composition in design systems
+
+Use renderer maps when you need to fully replace a control implementation for a field type. They are the escape hatch, not the main customization story.
+
+## Compound Parts
+
+For advanced styling and design-system integration, use the compound parts API.
+
+### `FormField`
+
+```tsx
+import { FormField } from "formwright/react";
+
+function ProfileFieldSet() {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <FormField.Root path="name">
+        <FormField.Label />
+        <FormField.Control />
+        <FormField.Error />
+      </FormField.Root>
+
+      <FormField.Root path="email">
+        <FormField.Label />
+        <FormField.Description />
+        <FormField.Control />
+        <FormField.Help />
+        <FormField.Error />
+      </FormField.Root>
+    </div>
+  );
+}
+```
+
+To replace the actual input element without using a renderer map:
+
+```tsx
+import { FormField } from "formwright/react";
+
+function ProfileFieldSet() {
+  return (
+    <FormField.Root path="name">
+      <FormField.Label />
+      <FormField.Control>
+        {({ value, onChange, onBlur, error, state }) => (
+          <input
+            value={typeof value === "string" ? value : ""}
+            onChange={(event) => onChange(event.target.value)}
+            onBlur={onBlur}
+            disabled={state.disabled || state.readonly}
+            aria-invalid={Boolean(error)}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: error ? "1px solid crimson" : "1px solid #ccc",
+            }}
+          />
+        )}
+      </FormField.Control>
+      <FormField.Error />
+    </FormField.Root>
+  );
+}
+```
+
+### `FormArray`
+
+```tsx
+import { FormArray } from "formwright/react";
+
+function TagList() {
+  return (
+    <FormArray.Root path="tags">
+      <FormArray.Header />
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <span>{String(item.value ?? "")}</span>
+            <FormArray.Remove index={index}>Remove tag</FormArray.Remove>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+      <FormArray.Add>Add tag</FormArray.Add>
+    </FormArray.Root>
   );
 }
 ```
@@ -69,8 +178,9 @@ Formwright supports multiple integration styles. Choose the one that fits your a
 
 1. Schema + default renderer: fastest setup
 2. Schema + slot-based theming: customize global form UI with slots
-3. Schema + per-type renderer map: replace specific field controls
-4. Mixed mode: slots for global styling + per-type overrides for complex fields
+3. Schema + compound parts: compose fields directly in your design system
+4. Schema + per-type renderer map: replace specific field controls
+5. Mixed mode: slots for global styling + per-type overrides for complex fields
 
 `FormRuntimeRoot` exposes two extension points:
 
@@ -114,7 +224,33 @@ export function FormWithCustomSlot() {
 }
 ```
 
-### Option 2: Per-type renderer map (example with Radix Select)
+### Option 2: Compound parts with custom controls
+
+```tsx
+import { FormField } from "formwright/react";
+
+export function FormWithCompoundFields() {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <FormField.Root path="name">
+        <FormField.Label />
+        <FormField.Control>
+          {({ value, onChange, onBlur }) => (
+            <input
+              value={typeof value === "string" ? value : ""}
+              onChange={(event) => onChange(event.target.value)}
+              onBlur={onBlur}
+            />
+          )}
+        </FormField.Control>
+        <FormField.Error />
+      </FormField.Root>
+    </div>
+  );
+}
+```
+
+### Option 3: Per-type renderer map (example with Radix Select)
 
 ```tsx
 import * as React from "react";
@@ -172,7 +308,7 @@ npm install @radix-ui/react-select
 
 Formwright is designed as an RHF-first rendering engine:
 
-- You can plug in your own UI components through `fieldRendererMap` and `fieldSlots`.
+- You can plug in your own UI components through compound parts, `fieldRendererMap`, and `fieldSlots`.
 - Validation is extensible via schema rules, resolver-based validation, and validator plugins.
 - Runtime behavior is extensible through plugins (field/layout/operator/effect/datasource).
 - Arrays (primitive and object items) also flow through renderer extension points.

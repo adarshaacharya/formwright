@@ -6,10 +6,13 @@ import type { FormDefinition } from "@formwright/contract";
 import { createFormRuntime, type FormPlugin } from "@formwright/core";
 import { FormRuntimeProvider } from "./form-runtime-provider";
 import { FormRuntimeRoot } from "../components/form-runtime-root";
+import { FormField } from "../components/form-field";
+import { FormArray } from "../components/form-array";
 import { FieldComposer } from "../components/field-composer";
 import { useRuntimeContext } from "./runtime-context";
 import { useFormContext } from "react-hook-form";
 import type { FieldRendererComponent, FieldRendererSlots, RenderFieldProps } from "../types/public-types";
+import { useFormLifecycle } from "../hooks/use-form-runtime";
 
 afterEach(() => {
   cleanup();
@@ -89,6 +92,64 @@ function makeForm(overrides?: Partial<FormDefinition>): FormDefinition {
 function ValuesProbe(): React.JSX.Element {
   const { evaluation } = useRuntimeContext();
   return <pre data-testid="values">{JSON.stringify(evaluation.values)}</pre>;
+}
+
+function LifecycleProbe(): React.JSX.Element {
+  const { runOnSubmit } = useFormLifecycle();
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await runOnSubmit();
+      }}
+    >
+      run lifecycle
+    </button>
+  );
+}
+
+function CompoundFieldProbe(): React.JSX.Element {
+  return (
+    <FormField.Root path="accountType">
+      <FormField.Label />
+      <FormField.Control />
+      <FormField.Error />
+    </FormField.Root>
+  );
+}
+
+function CompoundArrayProbe(): React.JSX.Element {
+  return (
+    <FormArray.Root path="tags">
+      <FormArray.Header />
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <span data-testid={`compound-array-item-${index}`}>{String(item.value ?? "")}</span>
+            <FormArray.Remove index={index}>remove tag</FormArray.Remove>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+      <FormArray.Add>add tag</FormArray.Add>
+    </FormArray.Root>
+  );
+}
+
+function CompoundPrimitiveArrayFieldProbe(): React.JSX.Element {
+  return (
+    <FormArray.Root path="tags">
+      <FormArray.Add>Add tag</FormArray.Add>
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <FormField.Root path={`tags.${index}`}>
+              <FormField.Control />
+            </FormField.Root>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+    </FormArray.Root>
+  );
 }
 
 function renderForm(hiddenFieldPolicy: "keep" | "clear" | "unregister") {
@@ -319,6 +380,72 @@ function makeObjectArrayRendererForm(): FormDefinition {
   };
 }
 
+function makeObjectArrayRuleForm(): FormDefinition {
+  return {
+    version: "1.0",
+    formId: "object-array-rule-form",
+    dataSchema: {
+      rootType: "object",
+      fields: {
+        accountType: {
+          valueType: "string",
+          default: "individual",
+          enum: ["individual", "company"],
+        },
+        contacts: {
+          valueType: "array",
+          itemType: "object",
+          default: [],
+          itemSchema: {
+            name: { valueType: "string", default: "" },
+          },
+        },
+      },
+    },
+    uiSchema: {
+      nodes: {
+        accountType: {
+          fieldType: "select",
+          label: "Account Type",
+          options: [
+            { label: "Individual", value: "individual" },
+            { label: "Company", value: "company" },
+          ],
+        },
+        contacts: {
+          fieldType: "array",
+          label: "Contacts",
+          componentProps: {
+            itemLayout: ["name"],
+            itemFields: {
+              name: { label: "Name", inputType: "text" },
+            },
+          },
+        },
+      },
+      layout: {
+        type: "stack",
+        id: "contacts-rule-root",
+        children: [{ type: "field", ref: "accountType" }, { type: "field", ref: "contacts" }],
+      },
+    },
+    behaviorSchema: {
+      rules: [
+        {
+          id: "hide-contact-name-when-individual",
+          when: { eq: [{ var: "accountType" }, "individual"] },
+          effects: [{ type: "hide", target: "contacts.*.name" }],
+        },
+        {
+          id: "show-contact-name-when-company",
+          when: { eq: [{ var: "accountType" }, "company"] },
+          effects: [{ type: "show", target: "contacts.*.name" }],
+        },
+      ],
+    },
+  };
+}
+
 function createDelayedDatasourcePlugin(): FormPlugin {
   return {
     kind: "datasource",
@@ -448,6 +575,7 @@ describe("@formwright/react-rhf adapter", () => {
       fieldState: {},
       layoutState: {},
       values: {},
+      fieldOptions: {},
       valueMutations: [],
     }));
     const runtime = {
@@ -631,6 +759,40 @@ describe("@formwright/react-rhf adapter", () => {
     });
   });
 
+  it("exposes lifecycle execution through the React adapter", async () => {
+    const onSubmitSpy = vi.fn(async () => ({
+      actions: [],
+      stage: "onSubmit" as const,
+    }));
+    const runtime = createFormRuntime({
+      form: makeForm({
+        behaviorSchema: {
+          lifecycle: {
+            onSubmit: [{ type: "submitTo", target: "/api/forms" }],
+          },
+        },
+      }),
+      context: { mode: "create" },
+    });
+
+    const lifecycleRuntime = {
+      ...runtime,
+      runLifecycle: onSubmitSpy,
+    };
+
+    render(
+      <FormRuntimeProvider runtime={lifecycleRuntime as typeof runtime}>
+        <LifecycleProbe />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "run lifecycle" }));
+
+    await waitFor(() => {
+      expect(onSubmitSpy).toHaveBeenCalledWith("onSubmit", expect.any(Object));
+    });
+  });
+
   it("uses custom field renderers for object-array item fields", async () => {
     const runtime = createFormRuntime({
       form: makeObjectArrayRendererForm(),
@@ -658,6 +820,136 @@ describe("@formwright/react-rhf adapter", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("custom-array-item-contacts.0.name")).not.toBeNull();
+    });
+  });
+
+  it("supports compound field parts for object-array item paths", async () => {
+    const runtime = createFormRuntime({
+      form: makeObjectArrayRendererForm(),
+      context: { mode: "create" },
+    });
+
+    function CompoundObjectArrayProbe(): React.JSX.Element {
+      return (
+        <FormArray.Root path="contacts">
+          <FormArray.Add>Add contact</FormArray.Add>
+          <FormArray.Items>
+            {(item, index) => (
+              <FormArray.Item key={item.id} index={index}>
+                <FormField.Root path={`contacts.${index}.name`}>
+                  <FormField.Label />
+                  <FormField.Control />
+                  <FormField.Error />
+                </FormField.Root>
+              </FormArray.Item>
+            )}
+          </FormArray.Items>
+        </FormArray.Root>
+      );
+    }
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <CompoundObjectArrayProbe />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add contact" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Name")).not.toBeNull();
+    });
+  });
+
+  it("applies wildcard nested array rules in the React adapter", async () => {
+    const runtime = createFormRuntime({
+      form: makeObjectArrayRuleForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <FormRuntimeRoot rootLayoutId="contacts-rule-root" />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "add item" }));
+
+    await waitFor(() => {
+      const hiddenInput = screen.getByLabelText("Name");
+      expect(hiddenInput.parentElement?.style.display).toBe("none");
+    });
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "company" } });
+
+    await waitFor(() => {
+      const visibleInput = screen.getByLabelText("Name");
+      expect(visibleInput.parentElement?.style.display).toBe("grid");
+    });
+  });
+
+  it("supports compound field parts for direct composition", async () => {
+    const runtime = createFormRuntime({
+      form: makeForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <CompoundFieldProbe />
+      </FormRuntimeProvider>,
+    );
+
+    const input = screen.getByRole("combobox") as HTMLSelectElement;
+    expect(input.value).toBe("individual");
+  });
+
+  it("supports compound array parts for direct composition", async () => {
+    const runtime = createFormRuntime({
+      form: makeForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <CompoundArrayProbe />
+        <ValuesProbe />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "add tag" }));
+
+    await waitFor(() => {
+      const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
+      expect(values.tags).toEqual([""]);
+      expect(screen.getByTestId("compound-array-item-0")).not.toBeNull();
+    });
+  });
+
+  it("supports compound field parts for primitive array item paths", async () => {
+    const runtime = createFormRuntime({
+      form: makeForm(),
+      context: { mode: "create" },
+    });
+
+    render(
+      <FormRuntimeProvider runtime={runtime}>
+        <CompoundPrimitiveArrayFieldProbe />
+        <ValuesProbe />
+      </FormRuntimeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add tag" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).not.toBeNull();
+    });
+
+    changeTextInput(screen.getByRole("textbox"), "beta");
+
+    await waitFor(() => {
+      const values = JSON.parse(screen.getByTestId("values").textContent ?? "{}") as Record<string, unknown>;
+      expect(values.tags).toEqual(["beta"]);
     });
   });
 

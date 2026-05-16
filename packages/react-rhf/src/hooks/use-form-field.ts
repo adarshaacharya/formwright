@@ -11,19 +11,26 @@ export function useFormField(path: FieldPath): UseFormFieldResult {
   const runtime = useFormRuntime();
   const { evaluation, hiddenFieldPolicy } = useRuntimeContext();
   const form = useFormContext<Record<string, unknown>>();
-  const field = runtime.getResolvedFields()[path];
+  const field = runtime.resolveField(path);
 
   if (!field) {
     throw new Error(`Field not found in resolved model: ${path}`);
   }
 
-  const state = evaluation.fieldState[path] ?? {
-    path,
-    visible: true,
-    disabled: false,
-    readonly: false,
-    required: false,
-  };
+  const parentState = field.parentPath ? evaluation.fieldState[field.parentPath] : undefined;
+  const state = evaluation.fieldState[path] ??
+    (parentState
+      ? {
+          ...parentState,
+          path,
+        }
+      : {
+          path,
+          visible: true,
+          disabled: false,
+          readonly: false,
+          required: false,
+        });
   const validationRules = useMemo(
     () => toRHFValidationRules(field.dataField, state.required),
     [field.dataField, state.required],

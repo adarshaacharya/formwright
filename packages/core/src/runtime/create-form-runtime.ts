@@ -1,9 +1,66 @@
-import type { FieldPath, FormDefinition, LayoutNode, RuleExpression } from "@formwright/contract";
+import type {
+  ArrayFieldDefinition,
+  DataSourceDefinition,
+  DataFieldDefinition,
+  FieldPath,
+  FormDefinition,
+  LayoutNode,
+  RuleExpression,
+  SelectOption,
+  UiFieldNode,
+} from "@formwright/contract";
 import { createPluginRegistry } from "../plugins/types";
 import type { ResolvedFieldModel, ResolvedLayoutModel } from "../resolved/types";
-import type { CreateFormRuntimeInput, EffectApplyInput, FormRuntime, OperatorEvaluateInput } from "./types";
+import type {
+  CreateFormRuntimeInput,
+  EffectApplyInput,
+  FormRuntime,
+  LifecycleStage,
+  LifecycleActionResult,
+  LifecycleExecutionResult,
+  OperatorEvaluateInput,
+} from "./types";
 import type { DerivedFieldState, DerivedLayoutState, RuntimeEvaluationResult } from "./types";
 import type { ValidationPlanItem } from "../validation/types";
+
+function normalizeFieldModel(
+  path: FieldPath,
+  dataField: DataFieldDefinition,
+  initialUiField: UiFieldNode | undefined,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): ResolvedFieldModel {
+  const initialFieldType = initialUiField?.fieldType ?? dataField.valueType;
+  const fieldPlugin = pluginRegistry.findField(initialFieldType);
+  const normalized = fieldPlugin?.normalize
+    ? fieldPlugin.normalize({
+        path,
+        dataField,
+        uiField: initialUiField,
+        context: runtimeContext ?? {},
+      })
+    : undefined;
+  const normalizedDataField = normalized?.normalizedDataField ?? dataField;
+  const normalizedUiField = normalized?.normalizedUiField ?? initialUiField;
+  const fieldType = normalized?.fieldType ?? normalizedUiField?.fieldType ?? normalizedDataField.valueType;
+  const rendererKey =
+    normalizedUiField?.renderer ??
+    fieldPlugin?.getRendererKey?.({
+      path,
+      uiField: normalizedUiField,
+      context: runtimeContext ?? {},
+    }) ??
+    fieldType;
+
+  return {
+    path,
+    fieldType,
+    valueType: normalizedDataField.valueType,
+    rendererKey,
+    dataField: normalizedDataField,
+    uiField: normalizedUiField,
+  };
+}
 
 function normalizeFields(
   form: FormDefinition,
@@ -12,36 +69,107 @@ function normalizeFields(
 ): Record<FieldPath, ResolvedFieldModel> {
   const resolved: Record<FieldPath, ResolvedFieldModel> = {};
   for (const [path, dataField] of Object.entries(form.dataSchema.fields)) {
-    const initialUiField = form.uiSchema.nodes[path];
-    const initialFieldType = initialUiField?.fieldType ?? dataField.valueType;
-    const fieldPlugin = pluginRegistry.findField(initialFieldType);
-    const normalized = fieldPlugin?.normalize
-      ? fieldPlugin.normalize({
-          path,
-          dataField,
-          uiField: initialUiField,
-          context: runtimeContext ?? {},
-        })
-      : undefined;
-    const normalizedDataField = normalized?.normalizedDataField ?? dataField;
-    const normalizedUiField = normalized?.normalizedUiField ?? initialUiField;
-    const fieldType = normalized?.fieldType ?? normalizedUiField?.fieldType ?? normalizedDataField.valueType;
-    const rendererKey = normalizedUiField?.renderer ?? fieldPlugin?.getRendererKey?.({
-      path,
-      uiField: normalizedUiField,
-      context: runtimeContext ?? {},
-    }) ?? fieldType;
-
-    resolved[path] = {
-      path,
-      fieldType,
-      valueType: normalizedDataField.valueType,
-      rendererKey,
-      dataField: normalizedDataField,
-      uiField: normalizedUiField,
-    };
+    resolved[path] = normalizeFieldModel(path, dataField, form.uiSchema.nodes[path], pluginRegistry, runtimeContext);
   }
   return resolved;
+}
+
+function isObjectArrayField(fieldModel: ResolvedFieldModel | undefined): fieldModel is ResolvedFieldModel & {
+  dataField: ArrayFieldDefinition;
+} {
+  return fieldModel?.dataField.valueType === "array" && fieldModel.dataField.itemType === "object";
+}
+
+function isArrayField(fieldModel: ResolvedFieldModel | undefined): fieldModel is ResolvedFieldModel & {
+  dataField: ArrayFieldDefinition;
+} {
+  return fieldModel?.dataField.valueType === "array";
+}
+
+function toPrimitiveArrayItemUiField(itemType: ArrayFieldDefinition["itemType"]): UiFieldNode {
+  return {
+    fieldType: itemType === "boolean" ? "checkbox" : itemType,
+  };
+}
+
+function resolveNestedArrayField(
+  path: FieldPath,
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+  pluginRegistry: ReturnType<typeof createPluginRegistry>,
+  runtimeContext: CreateFormRuntimeInput["context"],
+): ResolvedFieldModel | undefined {
+  const segments = path.split(".");
+
+  for (let index = 0; index < segments.length; index += 1) {
+    if (!/^\d+$/.test(segments[index])) {
+      continue;
+    }
+
+    const parentPath = segments.slice(0, index).join(".") as FieldPath;
+    const parentField = resolvedFields[parentPath];
+    if (!isArrayField(parentField)) {
+      return undefined;
+    }
+
+    const itemPathSegments = segments.slice(index + 1);
+    const itemKey = itemPathSegments.join(".");
+
+    if (!itemKey) {
+      if (parentField.dataField.itemType === "object") {
+        return undefined;
+      }
+
+      const primitiveUiField = toPrimitiveArrayItemUiField(parentField.dataField.itemType);
+      const resolvedPrimitiveField = normalizeFieldModel(
+        path,
+        {
+          valueType: parentField.dataField.itemType,
+          required: parentField.dataField.required,
+          readOnly: parentField.dataField.readOnly,
+        } as DataFieldDefinition,
+        primitiveUiField,
+        pluginRegistry,
+        runtimeContext,
+      );
+      return {
+        ...resolvedPrimitiveField,
+        parentPath,
+        templatePath: `${parentPath}.*` as FieldPath,
+        isCollectionItem: true,
+      };
+    }
+
+    if (!isObjectArrayField(parentField)) {
+      return undefined;
+    }
+
+    const itemDataField = parentField.dataField.itemSchema?.[itemKey];
+    if (!itemDataField) {
+      return undefined;
+    }
+
+    const componentProps = (parentField.uiField?.componentProps ?? {}) as {
+      itemFields?: Record<string, { label?: string; description?: string; helpText?: string; placeholder?: string; inputType?: string }>;
+    };
+    const itemMeta = componentProps.itemFields?.[itemKey];
+    const itemUiField: UiFieldNode = {
+      fieldType: itemMeta?.inputType ?? itemDataField.valueType,
+      label: itemMeta?.label,
+      description: itemMeta?.description,
+      helpText: itemMeta?.helpText,
+      placeholder: itemMeta?.placeholder,
+      widget: itemMeta?.inputType,
+    };
+    const resolvedItemField = normalizeFieldModel(path, itemDataField, itemUiField, pluginRegistry, runtimeContext);
+    return {
+      ...resolvedItemField,
+      parentPath,
+      templatePath: `${parentPath}.*.${itemKey}` as FieldPath,
+      isCollectionItem: true,
+    };
+  }
+
+  return undefined;
 }
 
 function normalizeLayout(
@@ -140,6 +268,16 @@ function getInitialFieldState(form: FormDefinition): Record<FieldPath, DerivedFi
   return fieldState;
 }
 
+function getInitialFieldOptions(
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+): Record<FieldPath, SelectOption[] | undefined> {
+  const fieldOptions: Record<FieldPath, SelectOption[] | undefined> = {};
+  for (const [path, fieldModel] of Object.entries(resolvedFields)) {
+    fieldOptions[path] = fieldModel.uiField?.options;
+  }
+  return fieldOptions;
+}
+
 function collectLayoutState(
   node: LayoutNode,
   layoutState: Record<string, DerivedLayoutState>,
@@ -205,70 +343,41 @@ function applyLayoutVisibilityFromNode(
   }
 }
 
-function collectExpressionDependencies(expression: RuleExpression, dependencies: Set<FieldPath>): void {
-  if ("var" in expression) {
-    if (!expression.var.startsWith("$")) dependencies.add(expression.var as FieldPath);
+function collectDependenciesFromUnknown(expression: unknown, dependencies: Set<FieldPath>): void {
+  if (Array.isArray(expression)) {
+    for (const item of expression) collectDependenciesFromUnknown(item, dependencies);
     return;
   }
 
-  if ("exists" in expression) {
-    dependencies.add(expression.exists as FieldPath);
+  if (!expression || typeof expression !== "object") {
     return;
   }
 
-  if ("eq" in expression) {
-    collectExpressionDependencies(expression.eq[0], dependencies);
+  const record = expression as Record<string, unknown>;
+
+  if (typeof record.var === "string") {
+    if (!record.var.startsWith("$")) dependencies.add(record.var as FieldPath);
     return;
   }
 
-  if ("neq" in expression) {
-    collectExpressionDependencies(expression.neq[0], dependencies);
+  if (typeof record.exists === "string") {
+    dependencies.add(record.exists as FieldPath);
     return;
   }
 
-  if ("gt" in expression) {
-    collectExpressionDependencies(expression.gt[0], dependencies);
+  if (typeof record.concat !== "undefined") {
+    collectDependenciesFromUnknown(record.concat, dependencies);
     return;
   }
 
-  if ("gte" in expression) {
-    collectExpressionDependencies(expression.gte[0], dependencies);
-    return;
-  }
-
-  if ("lt" in expression) {
-    collectExpressionDependencies(expression.lt[0], dependencies);
-    return;
-  }
-
-  if ("lte" in expression) {
-    collectExpressionDependencies(expression.lte[0], dependencies);
-    return;
-  }
-
-  if ("in" in expression) {
-    collectExpressionDependencies(expression.in[0], dependencies);
-    return;
-  }
-
-  if ("and" in expression) {
-    for (const node of expression.and) collectExpressionDependencies(node, dependencies);
-    return;
-  }
-
-  if ("or" in expression) {
-    for (const node of expression.or) collectExpressionDependencies(node, dependencies);
-    return;
-  }
-
-  if ("not" in expression) {
-    collectExpressionDependencies(expression.not, dependencies);
+  for (const value of Object.values(record)) {
+    collectDependenciesFromUnknown(value, dependencies);
   }
 }
 
 function collectLayoutDependencies(node: LayoutNode, dependencies: Set<FieldPath>): void {
   if ("visibleWhen" in node && node.visibleWhen) {
-    collectExpressionDependencies(node.visibleWhen, dependencies);
+    collectDependenciesFromUnknown(node.visibleWhen, dependencies);
   }
 
   if ("children" in node) {
@@ -292,11 +401,12 @@ function collectBehaviorDependencies(form: FormDefinition): FieldPath[] {
   const dependencies = new Set<FieldPath>();
 
   for (const rule of form.behaviorSchema?.rules ?? []) {
-    collectExpressionDependencies(rule.when, dependencies);
+    collectDependenciesFromUnknown(rule.when, dependencies);
   }
 
   for (const computed of form.behaviorSchema?.computed ?? []) {
     for (const path of computed.runOn) dependencies.add(path);
+    collectDependenciesFromUnknown(computed.expression, dependencies);
   }
 
   for (const source of Object.values(form.behaviorSchema?.dataSources ?? {})) {
@@ -310,51 +420,225 @@ function collectBehaviorDependencies(form: FormDefinition): FieldPath[] {
   return [...dependencies];
 }
 
+function getPathValue(values: Record<string, unknown>, path: FieldPath): unknown {
+  if (path in values) {
+    return values[path];
+  }
+
+  const segments = path.split(".");
+  let current: unknown = values;
+  for (const segment of segments) {
+    if (current === null || typeof current !== "object") {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return current;
+}
+
+function setPathValue(values: Record<string, unknown>, path: FieldPath, value: unknown): void {
+  if (path in values) {
+    values[path] = value;
+    return;
+  }
+
+  const segments = path.split(".");
+  let current: unknown = values;
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const segment = segments[index];
+    if (current === null || typeof current !== "object") {
+      values[path] = value;
+      return;
+    }
+
+    const container = current as Record<string, unknown>;
+    const nextSegment = segments[index + 1];
+    const existing = container[segment];
+    if (existing === undefined) {
+      container[segment] = /^\d+$/.test(nextSegment) ? [] : {};
+    }
+    current = container[segment];
+  }
+
+  if (current === null || typeof current !== "object") {
+    values[path] = value;
+    return;
+  }
+
+  (current as Record<string, unknown>)[segments[segments.length - 1]] = value;
+}
+
+function collectConcreteArrayItemPaths(
+  values: Record<string, unknown>,
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+): FieldPath[] {
+  const paths: FieldPath[] = [];
+
+  for (const [path, fieldModel] of Object.entries(resolvedFields)) {
+    if (!isArrayField(fieldModel)) {
+      continue;
+    }
+
+    const arrayValue = getPathValue(values, path as FieldPath);
+    if (!Array.isArray(arrayValue)) {
+      continue;
+    }
+
+    for (let index = 0; index < arrayValue.length; index += 1) {
+      if (fieldModel.dataField.itemType === "object") {
+        for (const itemKey of Object.keys(fieldModel.dataField.itemSchema ?? {})) {
+          paths.push(`${path}.${index}.${itemKey}` as FieldPath);
+        }
+        continue;
+      }
+
+      paths.push(`${path}.${index}` as FieldPath);
+    }
+  }
+
+  return paths;
+}
+
+function collectRuntimeFieldPaths(
+  values: Record<string, unknown>,
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+): FieldPath[] {
+  return [...(Object.keys(resolvedFields) as FieldPath[]), ...collectConcreteArrayItemPaths(values, resolvedFields)];
+}
+
+function seedConcreteArrayItemState(
+  values: Record<string, unknown>,
+  resolvedFields: Record<FieldPath, ResolvedFieldModel>,
+  resolveField: (path: FieldPath) => ResolvedFieldModel | undefined,
+  fieldState: Record<FieldPath, DerivedFieldState>,
+  fieldOptions: Record<FieldPath, SelectOption[] | undefined>,
+): void {
+  for (const path of collectConcreteArrayItemPaths(values, resolvedFields)) {
+    const resolvedField = resolveField(path);
+    if (!resolvedField) {
+      continue;
+    }
+
+    const parentState = resolvedField.parentPath ? fieldState[resolvedField.parentPath] : undefined;
+    fieldState[path] = parentState
+      ? { ...parentState, path }
+      : {
+          path,
+          visible: true,
+          disabled: Boolean(resolvedField.dataField.readOnly),
+          readonly: Boolean(resolvedField.dataField.readOnly),
+          required: Boolean(resolvedField.dataField.required),
+        };
+    fieldOptions[path] = resolvedField.uiField?.options;
+  }
+}
+
+function expandFieldTargetPaths(
+  target: FieldPath,
+  fieldState: Record<FieldPath, DerivedFieldState>,
+): FieldPath[] {
+  if (target === "*") {
+    return Object.keys(fieldState) as FieldPath[];
+  }
+
+  if (!target.includes("*")) {
+    return [target];
+  }
+
+  const escaped = target.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+");
+  const pattern = new RegExp(`^${escaped}$`);
+  return (Object.keys(fieldState) as FieldPath[]).filter((path) => pattern.test(path));
+}
+
+function resolveExpressionValue(
+  expression: unknown,
+  values: Record<string, unknown>,
+  context: Record<string, unknown>,
+): unknown {
+  if (Array.isArray(expression)) {
+    return expression.map((item) => resolveExpressionValue(item, values, context));
+  }
+
+  if (!expression || typeof expression !== "object") {
+    return expression;
+  }
+
+  const record = expression as Record<string, unknown>;
+
+  if (typeof record.var === "string") {
+    if (record.var.startsWith("$")) {
+      return context[record.var.slice(1)];
+    }
+    return getPathValue(values, record.var as FieldPath);
+  }
+  if (Array.isArray(record.eq) && record.eq.length === 2) {
+    return resolveExpressionValue(record.eq[0], values, context) === record.eq[1];
+  }
+  if (Array.isArray(record.neq) && record.neq.length === 2) {
+    return resolveExpressionValue(record.neq[0], values, context) !== record.neq[1];
+  }
+  if (Array.isArray(record.and)) {
+    return record.and.every((node) => Boolean(resolveExpressionValue(node, values, context)));
+  }
+  if (Array.isArray(record.or)) {
+    return record.or.some((node) => Boolean(resolveExpressionValue(node, values, context)));
+  }
+  if (typeof record.not !== "undefined") {
+    return !Boolean(resolveExpressionValue(record.not, values, context));
+  }
+  if (typeof record.exists === "string") {
+    const value = getPathValue(values, record.exists as FieldPath);
+    return value !== undefined && value !== null;
+  }
+  if (Array.isArray(record.gt) && record.gt.length === 2) {
+    return Number(resolveExpressionValue(record.gt[0], values, context)) > Number(record.gt[1]);
+  }
+  if (Array.isArray(record.gte) && record.gte.length === 2) {
+    return Number(resolveExpressionValue(record.gte[0], values, context)) >= Number(record.gte[1]);
+  }
+  if (Array.isArray(record.lt) && record.lt.length === 2) {
+    return Number(resolveExpressionValue(record.lt[0], values, context)) < Number(record.lt[1]);
+  }
+  if (Array.isArray(record.lte) && record.lte.length === 2) {
+    return Number(resolveExpressionValue(record.lte[0], values, context)) <= Number(record.lte[1]);
+  }
+  if (Array.isArray(record.in) && record.in.length === 2 && Array.isArray(record.in[1])) {
+    return record.in[1].includes(resolveExpressionValue(record.in[0], values, context));
+  }
+  if (Array.isArray(record.concat)) {
+    return record.concat.map((part) => resolveExpressionValue(part, values, context)).join("");
+  }
+
+  const resolvedObject: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    resolvedObject[key] = resolveExpressionValue(value, values, context);
+  }
+  return resolvedObject;
+}
+
 function evalExpr(
   expr: RuleExpression,
   values: Record<string, unknown>,
   context: Record<string, unknown>,
-): unknown {
-  if ("var" in expr) {
-    if (expr.var.startsWith("$")) {
-      return context[expr.var.slice(1)];
+): boolean {
+  return Boolean(resolveExpressionValue(expr, values, context));
+}
+
+function applyComputedValues(
+  form: FormDefinition,
+  values: Record<string, unknown>,
+  context: Record<string, unknown>,
+  pushValueMutation: (path: FieldPath, value: unknown) => void,
+): void {
+  for (const computed of form.behaviorSchema?.computed ?? []) {
+    const nextValue = resolveExpressionValue(computed.expression, values, context);
+    if (values[computed.target] !== nextValue) {
+      pushValueMutation(computed.target, nextValue);
     }
-    return values[expr.var];
   }
-  if ("eq" in expr) {
-    return evalExpr(expr.eq[0], values, context) === expr.eq[1];
-  }
-  if ("neq" in expr) {
-    return evalExpr(expr.neq[0], values, context) !== expr.neq[1];
-  }
-  if ("and" in expr) {
-    return expr.and.every((node) => Boolean(evalExpr(node, values, context)));
-  }
-  if ("or" in expr) {
-    return expr.or.some((node) => Boolean(evalExpr(node, values, context)));
-  }
-  if ("not" in expr) {
-    return !Boolean(evalExpr(expr.not, values, context));
-  }
-  if ("exists" in expr) {
-    return values[expr.exists] !== undefined && values[expr.exists] !== null;
-  }
-  if ("gt" in expr) {
-    return Number(evalExpr(expr.gt[0], values, context)) > expr.gt[1];
-  }
-  if ("gte" in expr) {
-    return Number(evalExpr(expr.gte[0], values, context)) >= expr.gte[1];
-  }
-  if ("lt" in expr) {
-    return Number(evalExpr(expr.lt[0], values, context)) < expr.lt[1];
-  }
-  if ("lte" in expr) {
-    return Number(evalExpr(expr.lte[0], values, context)) <= expr.lte[1];
-  }
-  if ("in" in expr) {
-    return expr.in[1].includes(evalExpr(expr.in[0], values, context));
-  }
-  return false;
 }
 
 function getExpressionOperatorType(expr: RuleExpression): string {
@@ -367,9 +651,10 @@ function applyBuiltInEffect(
   fieldState: Record<FieldPath, DerivedFieldState>,
   layoutState: Record<string, DerivedLayoutState>,
   values: Record<string, unknown>,
+  fieldOptions: Record<FieldPath, SelectOption[] | undefined>,
 ): void {
   const isWildcardTarget = effect.target === "*";
-  const targetFieldPaths = isWildcardTarget ? Object.keys(fieldState) : [effect.target];
+  const targetFieldPaths = expandFieldTargetPaths(effect.target, fieldState);
   const targetLayoutIds = isWildcardTarget ? Object.keys(layoutState) : [effect.target];
 
   if (effect.type === "show") {
@@ -398,13 +683,17 @@ function applyBuiltInEffect(
     }
   }
   if (effect.type === "setValue") {
-    values[effect.target] = effect.value;
+    for (const path of targetFieldPaths) {
+      setPathValue(values, path, effect.value);
+    }
   }
   if (effect.type === "clearValue") {
     if (isWildcardTarget) {
       for (const key of Object.keys(values)) values[key] = undefined;
     } else {
-      values[effect.target] = undefined;
+      for (const path of targetFieldPaths) {
+        setPathValue(values, path, undefined);
+      }
     }
   }
   if (effect.type === "setLayoutProp" && effect.prop === "visible") {
@@ -412,6 +701,27 @@ function applyBuiltInEffect(
       if (layoutState[id]) layoutState[id].visible = Boolean(effect.value);
     }
   }
+  if (effect.type === "setOptions") {
+    for (const path of targetFieldPaths) {
+      if (fieldState[path]) fieldOptions[path] = effect.value;
+    }
+  }
+}
+
+function getLifecycleActions(form: FormDefinition, stage: LifecycleStage) {
+  return form.behaviorSchema?.lifecycle?.[stage] ?? [];
+}
+
+function buildDependsOnValues(
+  source: DataSourceDefinition,
+  values: Record<string, unknown>,
+): Record<string, unknown> {
+  const dependsOnValues: Record<string, unknown> = {};
+  const dependsOn = "dependsOn" in source ? source.dependsOn : undefined;
+  for (const path of dependsOn ?? []) {
+    dependsOnValues[path] = getPathValue(values, path as FieldPath);
+  }
+  return dependsOnValues;
 }
 
 export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
@@ -429,22 +739,152 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
   const resolvedLayout = toResolvedLayout(form.uiSchema.layout, pluginRegistry, runtimeContext);
   const evaluationDependencies = collectBehaviorDependencies(form);
   const initialValues = getInitialValues(resolvedFields, pluginRegistry, runtimeContext);
+  const initialFieldOptions = getInitialFieldOptions(resolvedFields);
+  const resolveField = (path: FieldPath) =>
+    resolvedFields[path] ?? resolveNestedArrayField(path, resolvedFields, pluginRegistry, runtimeContext);
 
   const getFieldPluginForPath = (path: FieldPath) => {
-    const model = resolvedFields[path];
+    const model = resolveField(path);
     if (!model) return undefined;
     return pluginRegistry.findField(model.fieldType);
   };
 
-  return {
+  const runtime: FormRuntime = {
     getFormDefinition() {
       return form;
     },
     getResolvedFields() {
       return resolvedFields;
     },
+    resolveField(path: FieldPath) {
+      return resolveField(path);
+    },
     getResolvedLayout() {
       return resolvedLayout;
+    },
+    getLifecycleDefinition() {
+      return form.behaviorSchema?.lifecycle;
+    },
+    getLifecycleActions(stage: LifecycleStage) {
+      return getLifecycleActions(form, stage);
+    },
+    async runLifecycle(stage: LifecycleStage, runtimeValues?: Record<string, unknown>): Promise<LifecycleExecutionResult> {
+      const evaluation = runtime.evaluate(runtimeValues);
+      const values = evaluation.values;
+      const actions = getLifecycleActions(form, stage);
+      const results: LifecycleActionResult[] = [];
+      let hasBlockingValidationFailure = false;
+
+      for (const action of actions) {
+        if (action.type === "fetchDataSource") {
+          const source = form.behaviorSchema?.dataSources?.[action.target];
+          if (!source) {
+            results.push({ action, status: "skipped" });
+            continue;
+          }
+
+          const plugin = pluginRegistry.findDataSource(source.type);
+          if (!plugin) {
+            results.push({ action, status: "unsupported" });
+            continue;
+          }
+
+          const loaded = await plugin.load({
+            source,
+            dependsOnValues: buildDependsOnValues(source, values),
+            context: runtimeContext,
+          });
+
+          results.push({
+            action,
+            status: "completed",
+            dataSource: {
+              target: action.target,
+              options: loaded.options,
+              meta: loaded.meta,
+            },
+          });
+          continue;
+        }
+
+        if (action.type === "validateServerRules") {
+          const validationEntries: NonNullable<LifecycleActionResult["validation"]> = [];
+          let unsupported = false;
+
+          for (const path of collectRuntimeFieldPaths(values, resolvedFields)) {
+            const fieldModel = runtime.resolveField(path);
+            if (!fieldModel) continue;
+            const fieldPlan = runtime.getFieldValidationPlan(path);
+            if (fieldPlan.length === 0) continue;
+
+            for (const item of fieldPlan) {
+              const validator = pluginRegistry.findValidator(item.validatorType);
+              if (!validator) {
+                unsupported = true;
+                validationEntries.push({
+                  path,
+                  valid: false,
+                  code: "unsupported-validator",
+                  message: `Unsupported validator: ${item.validatorType}`,
+                });
+                continue;
+              }
+
+              const result = validator.validate({
+                path,
+                value: getPathValue(values, path),
+                dataField: fieldModel.dataField,
+                uiField: fieldModel.uiField,
+                values,
+                context: runtimeContext,
+              });
+
+              validationEntries.push({
+                path,
+                valid: result.valid,
+                code: result.code,
+                message: result.message,
+                meta: result.meta,
+              });
+            }
+          }
+
+          results.push({
+            action,
+            status: unsupported ? "unsupported" : "completed",
+            validation: validationEntries,
+          });
+          if (validationEntries.some((entry) => entry.valid === false)) {
+            hasBlockingValidationFailure = true;
+          }
+          continue;
+        }
+
+        if (action.type === "submitTo") {
+          if (hasBlockingValidationFailure) {
+            results.push({
+              action,
+              status: "skipped",
+              submission: {
+                target: action.target,
+                values,
+              },
+            });
+            continue;
+          }
+
+          results.push({
+            action,
+            status: "completed",
+            submission: {
+              target: action.target,
+              values,
+            },
+          });
+        }
+      }
+
+      return { stage, actions: results };
     },
     getEvaluationDependencies() {
       return evaluationDependencies;
@@ -456,7 +896,7 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
       return pluginRegistry;
     },
     getFieldValidationPlan(path: FieldPath): ValidationPlanItem[] {
-      const model = resolvedFields[path];
+      const model = resolveField(path);
       if (!model) return [];
       const plugin = getFieldPluginForPath(path);
       const pluginPlan = plugin?.getValidationPlan?.({
@@ -493,12 +933,17 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
       collectLayoutState(form.uiSchema.layout, layoutState);
       const fieldState = getInitialFieldState(form);
       const values = { ...initialValues, ...(runtimeValues ?? {}) };
+      const fieldOptions = { ...initialFieldOptions };
       const valueMutations: Array<{ path: FieldPath; value: unknown }> = [];
 
       const pushValueMutation = (path: FieldPath, value: unknown) => {
         valueMutations.push({ path, value });
-        values[path] = value;
+        setPathValue(values, path, value);
       };
+
+      seedConcreteArrayItemState(values, resolvedFields, resolveField, fieldState, fieldOptions);
+
+      applyComputedValues(form, values, runtimeContext as Record<string, unknown>, pushValueMutation);
 
       for (const rule of form.behaviorSchema?.rules ?? []) {
         const operatorType = getExpressionOperatorType(rule.when);
@@ -557,22 +1002,27 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
           }
 
           if (effect.type === "setValue") {
-            pushValueMutation(effect.target, effect.value);
+            for (const path of expandFieldTargetPaths(effect.target, fieldState)) {
+              pushValueMutation(path, effect.value);
+            }
             continue;
           }
           if (effect.type === "clearValue") {
             if (effect.target === "*") {
               for (const key of Object.keys(values)) pushValueMutation(key, undefined);
             } else {
-              pushValueMutation(effect.target, undefined);
+              for (const path of expandFieldTargetPaths(effect.target, fieldState)) {
+                pushValueMutation(path, undefined);
+              }
             }
             continue;
           }
 
-          applyBuiltInEffect(effect, fieldState, layoutState, values);
+          applyBuiltInEffect(effect, fieldState, layoutState, values, fieldOptions);
         }
       }
 
+      applyComputedValues(form, values, runtimeContext as Record<string, unknown>, pushValueMutation);
       applyLayoutVisibilityFromNode(
         form.uiSchema.layout,
         values,
@@ -584,8 +1034,11 @@ export function createFormRuntime(input: CreateFormRuntimeInput): FormRuntime {
         fieldState,
         layoutState,
         values,
+        fieldOptions,
         valueMutations,
       };
     },
   };
+
+  return runtime;
 }

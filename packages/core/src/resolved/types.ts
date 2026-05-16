@@ -9,6 +9,9 @@ export interface ResolvedFieldModel {
   rendererKey: string;
   dataField: DataFieldDefinition;
   uiField?: UiFieldNode;
+  parentPath?: FieldPath;
+  templatePath?: FieldPath;
+  isCollectionItem?: boolean;
 }
 
 export interface ResolvedLayoutModel {

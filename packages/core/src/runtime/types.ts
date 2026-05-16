@@ -7,6 +7,8 @@ import type {
   LayoutNode,
   RuleEffect,
   SelectOption,
+  LifecycleAction,
+  LifecycleDefinition,
   UiFieldNode,
 } from "@formwright/contract";
 
@@ -179,13 +181,46 @@ export interface RuntimeEvaluationResult {
   fieldState: Record<FieldPath, DerivedFieldState>;
   layoutState: Record<string, DerivedLayoutState>;
   values: Record<string, unknown>;
+  fieldOptions: Record<FieldPath, SelectOption[] | undefined>;
   valueMutations?: ValueMutation[];
+}
+
+export type LifecycleStage = keyof LifecycleDefinition;
+
+export interface LifecycleActionResult {
+  action: LifecycleAction;
+  status: "completed" | "skipped" | "unsupported";
+  dataSource?: {
+    target: string;
+    options?: SelectOption[];
+    meta?: Record<string, unknown>;
+  };
+  validation?: {
+    path: FieldPath;
+    valid: boolean;
+    message?: string;
+    code?: string;
+    meta?: Record<string, unknown>;
+  }[];
+  submission?: {
+    target: string;
+    values: Record<string, unknown>;
+  };
+}
+
+export interface LifecycleExecutionResult {
+  stage: LifecycleStage;
+  actions: LifecycleActionResult[];
 }
 
 export interface FormRuntime {
   getFormDefinition(): FormDefinition;
   getResolvedFields(): Record<FieldPath, ResolvedFieldModel>;
+  resolveField(path: FieldPath): ResolvedFieldModel | undefined;
   getResolvedLayout(): ResolvedLayoutModel;
+  getLifecycleDefinition(): LifecycleDefinition | undefined;
+  getLifecycleActions(stage: LifecycleStage): LifecycleAction[];
+  runLifecycle(stage: LifecycleStage, values?: Record<string, unknown>): Promise<LifecycleExecutionResult>;
   getEvaluationDependencies(): FieldPath[];
   getRuntimeContext(): RuntimeContext;
   getPluginRegistry(): PluginRegistry;

@@ -2,6 +2,8 @@
 
 Practical patterns for integrating Formwright with your design system and custom validation.
 
+Submission should stay in app code. `Formwright` renders the form and manages runtime state, while the consuming app keeps `handleSubmit`.
+
 ## Integration Style 0: Schema + default renderer (fastest path)
 
 ```tsx
@@ -31,7 +33,42 @@ export function ProfileForm() {
 }
 ```
 
-## Integration Style 1: Schema + per-type shadcn Input mapping
+## Integration Style 1: Compound parts with custom inputs
+
+```tsx
+import { FormField } from "formwright/react";
+
+export function ProfileFields() {
+  return (
+    <div className="space-y-4">
+      <FormField.Root path="fullName">
+        <FormField.Label />
+        <FormField.Control>
+          {({ value, onChange, onBlur, error, state }) => (
+            <input
+              className="h-10 w-full rounded-md border px-3"
+              value={typeof value === "string" ? value : ""}
+              onChange={(event) => onChange(event.target.value)}
+              onBlur={onBlur}
+              disabled={state.disabled || state.readonly}
+              aria-invalid={Boolean(error)}
+            />
+          )}
+        </FormField.Control>
+        <FormField.Error />
+      </FormField.Root>
+
+      <FormField.Root path="email">
+        <FormField.Label />
+        <FormField.Control />
+        <FormField.Error />
+      </FormField.Root>
+    </div>
+  );
+}
+```
+
+## Integration Style 2: Schema + per-type shadcn Input mapping
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -83,7 +120,7 @@ export function FormWithShadcnInputs() {
 }
 ```
 
-## Integration Style 2: Schema + per-type shadcn Select with datasource options
+## Integration Style 3: Schema + per-type shadcn Select with datasource options
 
 ```tsx
 import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererComponent } from "formwright/react";
@@ -129,7 +166,7 @@ export function FormWithShadcnSelect() {
 }
 ```
 
-## Integration Style 3: Schema + date picker with Date <-> string conversion
+## Integration Style 4: Schema + date picker with Date <-> string conversion
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -151,7 +188,7 @@ const DateField: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## Integration Style 4: Schema + checkbox/switch boolean binding
+## Integration Style 5: Schema + checkbox/switch boolean binding
 
 ```tsx
 import { type FieldRendererComponent } from "formwright/react";
@@ -169,7 +206,7 @@ const BooleanSwitch: FieldRendererComponent = ({ value, onChange, error }) => {
 };
 ```
 
-## Integration Style 5: Schema + slot-only design-system wrapper
+## Integration Style 6: Schema + slot-only design-system wrapper
 
 ```tsx
 import { buildForm, defineForm, field, layout } from "formwright/schema";
@@ -205,7 +242,30 @@ export function FormWithThemeSlots() {
 }
 ```
 
-## Integration Style 6: Schema + mixed mode (slots + per-type renderers)
+## Integration Style 7: Compound arrays
+
+```tsx
+import { FormArray } from "formwright/react";
+
+export function TagArray() {
+  return (
+    <FormArray.Root path="tags">
+      <FormArray.Header />
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <span>{String(item.value ?? "")}</span>
+            <FormArray.Remove index={index}>Remove</FormArray.Remove>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+      <FormArray.Add>Add tag</FormArray.Add>
+    </FormArray.Root>
+  );
+}
+```
+
+## Integration Style 8: Schema + mixed mode (slots + per-type renderers)
 
 Use slots for global structure/styling, and use `fieldRendererMap` only for special field types.
 
@@ -247,7 +307,7 @@ export function MixedForm() {
 }
 ```
 
-## Integration Style 7: Validation + error wiring
+## Integration Style 9: Validation + error wiring
 
 Always render `error` in custom controls so users keep validation feedback:
 

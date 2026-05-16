@@ -66,6 +66,13 @@ export function FormRuntimeProvider({
     resolver: validationResolver,
   });
   const evaluationDependencies = useMemo(() => runtime.getEvaluationDependencies(), [runtime]);
+  const collectionFieldPaths = useMemo(
+    () =>
+      Object.entries(runtime.getResolvedFields())
+        .filter(([, field]) => field.dataField.valueType === "array")
+        .map(([path]) => path),
+    [runtime],
+  );
   const watchedValues = useWatch({ control: form.control });
   const values = useMemo(() => flattenValues(watchedValues), [watchedValues]);
   const dependencySignature = useMemo(
@@ -75,7 +82,17 @@ export function FormRuntimeProvider({
         .join("\u0000"),
     [evaluationDependencies, values],
   );
-  const derivedEvaluation = useMemo(() => runtime.evaluate(values), [runtime, dependencySignature]);
+  const collectionSignature = useMemo(
+    () =>
+      collectionFieldPaths
+        .map((path) => JSON.stringify(values[path] ?? null))
+        .join("\u0000"),
+    [collectionFieldPaths, values],
+  );
+  const derivedEvaluation = useMemo(
+    () => runtime.evaluate(values),
+    [runtime, dependencySignature, collectionSignature],
+  );
   const evaluation = useMemo(
     () => ({
       ...derivedEvaluation,

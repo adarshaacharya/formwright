@@ -46,8 +46,15 @@ export type {
   DataSourcePlugin,
   FormPlugin,
   RuleTraceEntry,
+  LifecycleStage,
+  LifecycleActionResult,
+  LifecycleExecutionResult,
 } from "./runtime/types";
 
 export type { PluginRegistry } from "./plugins/types";
-export { DuplicatePluginError, createPluginRegistry } from "./plugins/types";
+export {
+  DuplicatePluginError,
+  DuplicatePluginCapabilityError,
+  createPluginRegistry,
+} from "./plugins/types";
 export { createFormRuntime } from "./runtime/create-form-runtime";

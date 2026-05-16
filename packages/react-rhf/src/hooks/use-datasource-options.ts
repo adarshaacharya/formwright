@@ -7,19 +7,28 @@ import { useFormRuntime } from "./use-form-runtime";
 export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResult {
   const runtime = useFormRuntime();
   const { evaluation } = useRuntimeContext();
-  const field = runtime.getResolvedFields()[path];
-  const state = evaluation.fieldState[path] ?? {
-    path,
-    visible: true,
-    disabled: false,
-    readonly: false,
-    required: false,
-  };
+  const field = runtime.resolveField(path);
+  const parentState = field?.parentPath ? evaluation.fieldState[field.parentPath] : undefined;
+  const state = evaluation.fieldState[path] ??
+    (parentState
+      ? {
+          ...parentState,
+          path,
+        }
+      : {
+          path,
+          visible: true,
+          disabled: false,
+          readonly: false,
+          required: false,
+        });
 
   const sourceName = field?.uiField?.dataSource;
   const source = sourceName ? runtime.getFormDefinition().behaviorSchema?.dataSources?.[sourceName] : undefined;
   const plugin = source ? runtime.getPluginRegistry().findDataSource(source.type) : undefined;
   const staticOptions = field?.uiField?.options;
+  const runtimeOptions = evaluation.fieldOptions[path];
+  const runtimeOptionOverride = runtimeOptions !== staticOptions ? runtimeOptions : undefined;
   const dependsOnValues = useMemo(() => {
     if (!source || source.type !== "remote") return {};
     const values: Record<string, unknown> = {};
@@ -46,7 +55,7 @@ export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResul
     }
 
     if (!plugin) {
-      setRemoteOptions(source.type === "static" ? source.options : staticOptions);
+      setRemoteOptions(source.type === "static" ? source.options : runtimeOptionOverride ?? staticOptions);
       setLoading(false);
       setError(undefined);
       return () => {
@@ -55,7 +64,7 @@ export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResul
     }
 
     if (source.type === "static") {
-      setRemoteOptions(source.options);
+      setRemoteOptions(runtimeOptionOverride ?? source.options);
       setLoading(false);
       setError(undefined);
       return () => {
@@ -74,12 +83,12 @@ export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResul
       })
       .then((result) => {
         if (!cancelled) {
-          setRemoteOptions(result.options);
+          setRemoteOptions(result.options ?? runtimeOptionOverride);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setRemoteOptions(staticOptions);
+          setRemoteOptions(runtimeOptionOverride ?? staticOptions);
           setError(`Failed to load options for ${path}`);
         }
       })
@@ -92,11 +101,11 @@ export function useDatasourceOptions(path: FieldPath): UseDatasourceOptionsResul
     return () => {
       cancelled = true;
     };
-  }, [dependsOnSignature, plugin, runtime, source, staticOptions]);
+  }, [dependsOnSignature, plugin, runtime, runtimeOptionOverride, source, staticOptions]);
 
   return {
     loading: Boolean(state.loading) || loading,
     error,
-    options: remoteOptions ?? staticOptions,
+    options: runtimeOptionOverride ?? remoteOptions ?? staticOptions,
   };
 }

@@ -1,7 +1,18 @@
-import type {
-  RenderFieldProps,
-} from "../../types/public-types";
+import type { RenderFieldProps } from "../../types/public-types";
 import { FieldComposer } from "../field-composer";
+
+export function renderDefaultFieldControl(props: RenderFieldProps): React.JSX.Element {
+  return buildDefaultControl(
+    props.field,
+    props.state,
+    props.value,
+    props.error,
+    props.onChange,
+    props.onBlur,
+    props.loading,
+    props.options,
+  );
+}
 
 function buildDefaultControl(
   field: RenderFieldProps["field"],
@@ -87,6 +98,7 @@ function buildDefaultControl(
   if (controlType === "textarea") {
     return (
       <textarea
+        aria-label={label}
         value={(value as string | undefined) ?? ""}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
@@ -100,6 +112,7 @@ function buildDefaultControl(
     return (
       <input
         type="number"
+        aria-label={label}
         value={(value as string | number | undefined) ?? ""}
         onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))}
         onBlur={onBlur}
@@ -115,6 +128,7 @@ function buildDefaultControl(
     return (
       <input
         type={inputType}
+        aria-label={label}
         value={(value as string | number | undefined) ?? ""}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
@@ -126,6 +140,7 @@ function buildDefaultControl(
 
   return (
     <input
+      aria-label={label}
       value={(value as string | number | undefined) ?? ""}
       onChange={(event) => onChange(event.target.value)}
       onBlur={onBlur}
@@ -133,20 +148,6 @@ function buildDefaultControl(
       disabled={state.disabled || state.readonly || loading}
     />
   );
-}
-
-function renderControl(props: RenderFieldProps): React.JSX.Element {
-  const defaultControl = buildDefaultControl(
-    props.field,
-    props.state,
-    props.value,
-    props.error,
-    props.onChange,
-    props.onBlur,
-    props.loading,
-    props.options,
-  );
-  return <>{defaultControl}</>;
 }
 
 export function DefaultField({
@@ -164,7 +165,17 @@ export function DefaultField({
   const description = field.uiField?.description;
   const helpText = field.uiField?.helpText;
   const Control = slots?.Control;
-  const defaultControl = renderControl({ field, state, value, error, onChange, onBlur, loading, options, path: field.path });
+  const defaultControl = renderDefaultFieldControl({
+    field,
+    state,
+    value,
+    error,
+    onChange,
+    onBlur,
+    loading,
+    options,
+    path: field.path,
+  });
 
   return (
     <FieldComposer
