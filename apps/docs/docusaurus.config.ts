@@ -2,7 +2,20 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+async function fetchNpmVersion(): Promise<string> {
+  try {
+    const res = await fetch('https://registry.npmjs.org/formwright/latest');
+    const data = await res.json() as { version: string };
+    return data.version;
+  } catch {
+    return '';
+  }
+}
+
+const npmVersion = await fetchNpmVersion();
+
 const config: Config = {
+  customFields: { npmVersion },
   title: 'Formwright Docs',
   tagline: 'Schema-driven form engine documentation',
   favicon: 'img/favicon.ico',
