@@ -2,26 +2,94 @@
 sidebar_position: 4
 ---
 
-# Cascading Selects
+# Dependent Dropdowns Without the `useEffect` Mess
 
-Load select options that depend on another field's value — country → state → city, category → subcategory, or any parent/child option chain.
+Every app has at least one: a select that loads its options based on what you picked in another select. Country → state → city. Category → subcategory. Brand → model.
 
-## How it works
+The naive implementation works until it doesn't.
 
-Declare `dependsOn` on the child datasource. When the parent field changes, the child datasource re-fetches automatically with the new parent value in the query.
+## What it usually looks like (before)
 
-## Schema
+Three selects, three loading states, two `useEffect`s, and a lot of cleanup logic.
+
+```tsx title="LocationForm.tsx"
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+
+export function LocationForm() {
+  const { register, watch, handleSubmit } = useForm();
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  const selectedCountry = watch("country");
+  const selectedState = watch("state");
+
+  useEffect(() => {
+    if (!selectedCountry) return;
+    setStates([]);   // clear stale options
+    setCities([]);   // also clear grandchild
+    setLoadingStates(true);
+    fetch(`/api/states?country_code=${selectedCountry}`)
+      .then((r) => r.json())
+      .then(setStates)
+      .finally(() => setLoadingStates(false));
+  }, [selectedCountry]);
+
+  useEffect(() => {
+    if (!selectedState) return;
+    setCities([]);
+    setLoadingCities(true);
+    fetch(`/api/cities?state_code=${selectedState}`)
+      .then((r) => r.json())
+      .then(setCities)
+      .finally(() => setLoadingCities(false));
+  }, [selectedState]);
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <select {...register("country")}>
+        <option value="US">United States</option>
+        <option value="CA">Canada</option>
+      </select>
+
+      <select {...register("state")} disabled={loadingStates || !selectedCountry}>
+        {loadingStates
+          ? <option>Loading...</option>
+          : states.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)
+        }
+      </select>
+
+      <select {...register("city")} disabled={loadingCities || !selectedState}>
+        {loadingCities
+          ? <option>Loading...</option>
+          : cities.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)
+        }
+      </select>
+
+      <button type="submit">Continue</button>
+    </form>
+  );
+}
+```
+
+This works, but it has real problems.
+
+**State management sprawls.** Two loading booleans, two option arrays, manual clearing on parent change. Add a fourth level and you're writing three `useEffect`s.
+
+**Stale values silently submit.** Change country from US to Canada — state was "California". The state field still shows "CA" as the value even though it's no longer valid. Nothing clears it automatically.
+
+**No standard pattern.** The next dev who adds a cascading select will do it differently, and now you have two patterns to maintain.
+
+---
+
+## With Formwright (after)
+
+Declare the dependency in the schema. The engine re-fetches when the parent changes.
 
 ```ts title="location-form.ts"
-import {
-  buildForm,
-  defineForm,
-  field,
-  layout,
-  datasource,
-  rule,
-  fieldRef,
-} from "formwright/schema";
+import { buildForm, defineForm, field, layout, datasource, rule, fieldRef } from "formwright/schema";
 
 const country = field.select("country", {
   label: "Country",
@@ -47,44 +115,37 @@ export const locationForm = buildForm({
     layout.field(city),
   ]),
   datasources: [
-    // Static list — no dependency
     datasource.static("countries", [
       { label: "United States", value: "US" },
       { label: "Canada", value: "CA" },
       { label: "United Kingdom", value: "GB" },
     ]),
 
-    // Re-fetches when `country` changes, passes it as a query param
+    // `dependsOn` tells the engine to re-fetch when `country` changes.
+    // `queryMap` maps current field values to query params using {{fieldPath}} syntax.
     datasource.remote("states", {
       endpoint: "/api/states",
       method: "GET",
       dependsOn: ["country"],
-      queryMap: {
-        country_code: "{{country}}",
-      },
+      queryMap: { country_code: "{{country}}" },
     }),
 
-    // Re-fetches when `state` changes
     datasource.remote("cities", {
       endpoint: "/api/cities",
       method: "GET",
       dependsOn: ["state"],
-      queryMap: {
-        state_code: "{{state}}",
-      },
+      queryMap: { state_code: "{{state}}" },
     }),
   ],
   rules: [
-    // Hide child selects until parent is selected
+    // Hide child selects until parent has a value
     rule.when(fieldRef(country).exists()).show(state),
-    rule.when(fieldRef(country).exists()).show(city),
+    rule.when(fieldRef(state).exists()).show(city),
+    rule.when(fieldRef(country).exists()).clearValue(state),
+    rule.when(fieldRef(state).exists()).clearValue(city),
   ],
 });
 ```
-
-`{{country}}` and `{{state}}` are template references to the current field values. The datasource plugin substitutes them before making the request.
-
-## Rendering
 
 ```tsx title="LocationPage.tsx"
 import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
@@ -106,11 +167,11 @@ export function LocationPage() {
 }
 ```
 
-`registerAsyncPlugins()` is required — it provides the remote datasource loader.
+No `useState`. No `useEffect`. No manual clearing. The datasource plugin handles loading state, and the rules handle visibility and value clearing.
 
-## Expected API response
+## What the API expects
 
-The remote endpoint should return a JSON array:
+The remote endpoint returns a JSON array:
 
 ```json
 GET /api/states?country_code=US
@@ -122,53 +183,42 @@ GET /api/states?country_code=US
 ]
 ```
 
-For non-standard response shapes, map the keys with `labelKey` and `valueKey`:
+If your API returns a different shape, map it with `labelKey` and `valueKey`:
 
 ```ts
 datasource.remote("states", {
   endpoint: "/api/states",
   dependsOn: ["country"],
   queryMap: { country_code: "{{country}}" },
-  labelKey: "stateName",   // response field to use as label
-  valueKey: "stateCode",   // response field to use as value
+  labelKey: "stateName",
+  valueKey: "stateCode",
 })
 ```
 
-## POST instead of GET
-
-Use `bodyMap` when the API expects a POST body instead of query params:
+If your API expects POST instead of GET:
 
 ```ts
 datasource.remote("cities", {
   endpoint: "/api/cities/search",
   method: "POST",
   dependsOn: ["state"],
-  bodyMap: {
-    stateCode: "{{state}}",
-  },
+  bodyMap: { stateCode: "{{state}}" },
 })
 ```
 
-## Clearing child values on parent change
+## What changes and what stays the same
 
-When the user selects a new country, the stale state value is no longer valid. The engine re-fetches state options automatically, but the old value stays in the form until the user picks a new one. Clear it explicitly with a rule:
+**What changes:**
+- Fetch + loading state moves from `useState`/`useEffect` into `datasource.remote` with `dependsOn`
+- Stale child value clearing moves from manual `setState([])` into `rule.when(...).clearValue(...)`
+- Dependency declaration is colocated with the field, not buried in a component
 
-```ts
-rules: [
-  // When country changes to any value, clear dependent fields
-  rule.when(fieldRef(country).exists()).clearValue(state),
-  rule.when(fieldRef(country).exists()).clearValue(city),
-  rule.when(fieldRef(state).exists()).clearValue(city),
-]
-```
-
-> **Note:** `clearValue` fires whenever the condition is true, not only on change. If you need the initial values to persist on first load, set `initialValues` in `FormRuntimeProvider` after the above rules run — or omit the clear rules and let users re-select manually.
-
-## Three levels deep
-
-Adding a third level (country → state → city → district) follows the same pattern — add another `datasource.remote` with `dependsOn: ["city"]`.
+**What stays the same:**
+- Your API endpoints don't change — only how the frontend calls them
+- Options still arrive as `{ label, value }` pairs
+- Loading state is still passed to your custom renderer if you use one
 
 ## See also
 
-- [Data Sources](/docs/guides/data-sources) — static, remote, POST body, and custom datasource plugins
-- [Conditional Fields](/docs/guides/conditional-fields) — show/hide fields with rules
+- [Data Sources](/docs/guides/data-sources) — POST body, custom plugins, `useDatasourceOptions` hook
+- [Conditional Fields](/docs/guides/conditional-fields) — `show`, `hide`, `clearValue` rules

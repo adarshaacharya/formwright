@@ -2,30 +2,34 @@
 sidebar_position: 3
 ---
 
-# Wiring Your Design System
+# Bring Your Own Components
 
-Formwright renders native HTML inputs by default. Replace them with your own components — once — and every form in your app uses your design system automatically.
+Formwright renders native HTML inputs by default. They work, but they don't look like your app. Wiring your design system once — so every form gets your components automatically — takes two files and about twenty minutes.
 
-The pattern is: build a `FormRoot` wrapper that bakes in your renderers, then use `FormRoot` everywhere instead of `FormRuntimeRoot`.
+## The problem with scattered overrides
+
+Without a central setup, teams end up with one of two patterns.
+
+**Pattern A — repeat per form.** Every `FormRuntimeRoot` gets the same `fieldRendererMap` and `fieldSlots` copy-pasted. Changing a global style means hunting through every form file.
+
+**Pattern B — native inputs forever.** The team ships with default HTML inputs, planning to "style them later." Later never comes, and the form looks out of place in the rest of the app.
+
+The fix is to do it once: implement your renderers, bundle them into a `FormRoot` wrapper, and use `FormRoot` everywhere. Changing a global style means changing one file.
 
 ## What you'll build
 
 ```
 components/
   form/
-    renderers.tsx     ← all FieldRendererComponent implementations
+    renderers.tsx     ← FieldRendererComponent implementations
     FormRoot.tsx      ← drop-in replacement for FormRuntimeRoot
 ```
 
-Every form in your app imports `FormRoot`. Switching from native inputs to Shadcn/ui (or MUI, Radix, etc.) means changing these two files only.
-
----
-
 ## Step 1 — implement your renderers
 
-Each renderer is a component that receives the current value, change handler, derived state, and validation error. Wire them to your design system components.
+Each renderer is a typed component that receives `value`, `onChange`, `state`, `error`, and `options` (for selects). Wire them to your design system.
 
-The examples below use [shadcn/ui](https://ui.shadcn.com/). Adapt the imports to whatever library you use.
+The examples below use [shadcn/ui](https://ui.shadcn.com). Swap the imports for MUI, Radix, Chakra, or anything else.
 
 ```tsx title="components/form/renderers.tsx"
 import type { FieldRendererComponent } from "formwright/react";
@@ -33,34 +37,27 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// ─── Text / email / password / url ───────────────────────────────────────────
+import {
+  Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 export const TextRenderer: FieldRendererComponent = ({
   value, onChange, onBlur, error, state, field,
 }) => (
   <Input
-    type={field.fieldType === "email" ? "email" : field.fieldType === "password" ? "password" : "text"}
+    type={field.fieldType === "email" ? "email"
+        : field.fieldType === "password" ? "password"
+        : "text"}
     value={typeof value === "string" ? value : ""}
     onChange={(e) => onChange(e.target.value)}
     onBlur={onBlur}
     disabled={state.disabled}
     readOnly={state.readonly}
     aria-invalid={Boolean(error)}
-    className={error ? "border-destructive" : undefined}
   />
 );
-
-// ─── Number / integer ─────────────────────────────────────────────────────────
 
 export const NumberRenderer: FieldRendererComponent = ({
   value, onChange, onBlur, error, state,
@@ -72,11 +69,8 @@ export const NumberRenderer: FieldRendererComponent = ({
     onBlur={onBlur}
     disabled={state.disabled}
     aria-invalid={Boolean(error)}
-    className={error ? "border-destructive" : undefined}
   />
 );
-
-// ─── Textarea ─────────────────────────────────────────────────────────────────
 
 export const TextareaRenderer: FieldRendererComponent = ({
   value, onChange, onBlur, error, state,
@@ -87,12 +81,9 @@ export const TextareaRenderer: FieldRendererComponent = ({
     onBlur={onBlur}
     disabled={state.disabled}
     aria-invalid={Boolean(error)}
-    className={error ? "border-destructive" : undefined}
     rows={4}
   />
 );
-
-// ─── Select ──────────────────────────────────────────────────────────────────
 
 export const SelectRenderer: FieldRendererComponent = ({
   value, onChange, options, loading, error, state,
@@ -105,7 +96,7 @@ export const SelectRenderer: FieldRendererComponent = ({
       onValueChange={onChange}
       disabled={state.disabled}
     >
-      <SelectTrigger aria-invalid={Boolean(error)} className={error ? "border-destructive" : undefined}>
+      <SelectTrigger aria-invalid={Boolean(error)}>
         <SelectValue placeholder="Select…" />
       </SelectTrigger>
       <SelectContent>
@@ -119,8 +110,6 @@ export const SelectRenderer: FieldRendererComponent = ({
   );
 };
 
-// ─── Boolean (switch) ────────────────────────────────────────────────────────
-
 export const BooleanRenderer: FieldRendererComponent = ({
   value, onChange, state, field,
 }) => (
@@ -131,35 +120,19 @@ export const BooleanRenderer: FieldRendererComponent = ({
       onCheckedChange={onChange}
       disabled={state.disabled}
     />
-    {field.uiField?.label && (
-      <Label htmlFor={field.path} className="cursor-pointer">
-        {field.uiField.label}
-      </Label>
-    )}
   </div>
 );
-
-// ─── Checkbox ────────────────────────────────────────────────────────────────
 
 export const CheckboxRenderer: FieldRendererComponent = ({
   value, onChange, state, field,
 }) => (
-  <div className="flex items-center gap-2">
-    <Checkbox
-      id={field.path}
-      checked={Boolean(value)}
-      onCheckedChange={(checked) => onChange(Boolean(checked))}
-      disabled={state.disabled}
-    />
-    {field.uiField?.label && (
-      <Label htmlFor={field.path} className="cursor-pointer">
-        {field.uiField.label}
-      </Label>
-    )}
-  </div>
+  <Checkbox
+    id={field.path}
+    checked={Boolean(value)}
+    onCheckedChange={(v) => onChange(Boolean(v))}
+    disabled={state.disabled}
+  />
 );
-
-// ─── Date ────────────────────────────────────────────────────────────────────
 
 export const DateRenderer: FieldRendererComponent = ({
   value, onChange, onBlur, error, state,
@@ -171,33 +144,36 @@ export const DateRenderer: FieldRendererComponent = ({
     onBlur={onBlur}
     disabled={state.disabled}
     aria-invalid={Boolean(error)}
-    className={error ? "border-destructive" : undefined}
   />
 );
 ```
 
----
+Each renderer is independent. If you want to replace the date picker with a calendar popover later, only that one function changes.
 
 ## Step 2 — build `FormRoot`
 
-`FormRoot` wraps `FormRuntimeRoot` with your renderer map baked in. It also wires global slot overrides for label and error styles.
+`FormRoot` wraps `FormRuntimeRoot` with your renderer map and global slot overrides baked in. It uses `createDefaultRendererMaps()` as the base so array fields and layout containers still render correctly without extra setup.
 
 ```tsx title="components/form/FormRoot.tsx"
-import { FormRuntimeRoot, createDefaultRendererMaps, type FieldRendererSlots } from "formwright/react";
 import {
-  TextRenderer,
-  NumberRenderer,
-  TextareaRenderer,
-  SelectRenderer,
-  BooleanRenderer,
-  CheckboxRenderer,
-  DateRenderer,
+  FormRuntimeRoot,
+  createDefaultRendererMaps,
+  type FieldRendererSlots,
+} from "formwright/react";
+import {
+  TextRenderer, NumberRenderer, TextareaRenderer,
+  SelectRenderer, BooleanRenderer, CheckboxRenderer, DateRenderer,
 } from "./renderers";
 
 const { arrayFieldRendererMap, layoutRendererMap } = createDefaultRendererMaps();
 
-// Global label and error slot — matches your design system typography
+// Global label, error, and shell slots — match your design system typography.
 const fieldSlots: FieldRendererSlots = {
+  Shell: ({ children, state }) => (
+    <div className={`space-y-1.5 ${!state.visible ? "hidden" : ""}`}>
+      {children}
+    </div>
+  ),
   Label: ({ label, state }) => (
     <label className={`text-sm font-medium leading-none ${state.required ? "after:content-['_*'] after:text-destructive" : ""}`}>
       {label}
@@ -207,11 +183,6 @@ const fieldSlots: FieldRendererSlots = {
     error ? <p className="text-sm text-destructive mt-1">{error}</p> : null,
   Help: ({ helpText }) =>
     helpText ? <p className="text-xs text-muted-foreground mt-1">{helpText}</p> : null,
-  Shell: ({ children, state }) => (
-    <div className={`space-y-1.5 ${!state.visible ? "hidden" : ""}`}>
-      {children}
-    </div>
-  ),
 };
 
 interface FormRootProps {
@@ -224,17 +195,17 @@ export function FormRoot({ rootLayoutId = "root" }: FormRootProps) {
       rootLayoutId={rootLayoutId}
       fieldSlots={fieldSlots}
       fieldRendererMap={{
-        text: TextRenderer,
-        email: TextRenderer,
+        text:     TextRenderer,
+        email:    TextRenderer,
         password: TextRenderer,
-        url: TextRenderer,
-        number: NumberRenderer,
-        integer: NumberRenderer,
-        textarea: TextRenderer,
-        select: SelectRenderer,
-        boolean: BooleanRenderer,
+        url:      TextRenderer,
+        number:   NumberRenderer,
+        integer:  NumberRenderer,
+        textarea: TextareaRenderer,
+        select:   SelectRenderer,
+        boolean:  BooleanRenderer,
         checkbox: CheckboxRenderer,
-        date: DateRenderer,
+        date:     DateRenderer,
       }}
       arrayFieldRendererMap={arrayFieldRendererMap}
       layoutRendererMap={layoutRendererMap}
@@ -243,11 +214,9 @@ export function FormRoot({ rootLayoutId = "root" }: FormRootProps) {
 }
 ```
 
----
+## Step 3 — use `FormRoot` everywhere
 
-## Step 3 — use `FormRoot` in your forms
-
-Replace `FormRuntimeRoot` with `FormRoot` everywhere. No other changes needed.
+Replace `FormRuntimeRoot` with `FormRoot`. No other changes.
 
 ```tsx title="ProfilePage.tsx"
 import { FormRuntimeProvider, useCreateFormRuntime } from "formwright/react";
@@ -269,83 +238,84 @@ export function ProfilePage() {
 }
 ```
 
-Every form uses the same renderers. Adding a new field type means adding one renderer to `renderers.tsx` and one entry to the map in `FormRoot.tsx`.
-
----
+Every form gets your components. Adding a new field type (e.g. a rich text editor) means adding one renderer to `renderers.tsx` and one line to the map in `FormRoot.tsx`.
 
 ## Overriding one renderer per form
 
-`FormRoot` sets defaults. Any form can still override a specific renderer without affecting others:
+`FormRoot` sets defaults. A specific form can still override a single renderer without touching the global setup.
 
 ```tsx
-import { FormRuntimeRoot } from "formwright/react";
-import { createDefaultRendererMaps } from "formwright/react";
+import { FormRuntimeRoot, createDefaultRendererMaps } from "formwright/react";
 import { MySpecialSelect } from "./MySpecialSelect";
 
 const { fieldRendererMap } = createDefaultRendererMaps();
 
+// Only this form uses MySpecialSelect — everything else stays default.
 <FormRuntimeRoot
   rootLayoutId="root"
-  fieldRendererMap={{
-    ...fieldRendererMap,
-    select: MySpecialSelect,   // only this form uses MySpecialSelect
-  }}
+  fieldRendererMap={{ ...fieldRendererMap, select: MySpecialSelect }}
 />
 ```
 
----
+## Manual composition as an escape hatch
 
-## Manual field composition (escape hatch)
-
-When the auto-layout renderer doesn't fit a specific form, compose fields manually using `FormField`. You still get runtime state (visibility, required, disabled) and validation wiring — just without the layout engine.
+When a specific form needs a layout the auto-renderer can't produce, use `FormField` directly. You still get runtime state (visibility, required, disabled) and RHF validation — just without the layout engine.
 
 ```tsx
 import { FormField } from "formwright/react";
 import { Input } from "@/components/ui/input";
 
-function BillingSection() {
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      <FormField.Root path="firstName">
-        <FormField.Label />
-        <FormField.Control>
-          {({ value, onChange, onBlur, error, state }) => (
-            <Input
-              value={typeof value === "string" ? value : ""}
-              onChange={(e) => onChange(e.target.value)}
-              onBlur={onBlur}
-              disabled={state.disabled}
-              aria-invalid={Boolean(error)}
-            />
-          )}
-        </FormField.Control>
-        <FormField.Error />
-      </FormField.Root>
+<div className="grid grid-cols-2 gap-4">
+  <FormField.Root path="firstName">
+    <FormField.Label />
+    <FormField.Control>
+      {({ value, onChange, onBlur, error, state }) => (
+        <Input
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          disabled={state.disabled}
+          aria-invalid={Boolean(error)}
+        />
+      )}
+    </FormField.Control>
+    <FormField.Error />
+  </FormField.Root>
 
-      <FormField.Root path="lastName">
-        <FormField.Label />
-        <FormField.Control>
-          {({ value, onChange, onBlur, error, state }) => (
-            <Input
-              value={typeof value === "string" ? value : ""}
-              onChange={(e) => onChange(e.target.value)}
-              onBlur={onBlur}
-              disabled={state.disabled}
-              aria-invalid={Boolean(error)}
-            />
-          )}
-        </FormField.Control>
-        <FormField.Error />
-      </FormField.Root>
-    </div>
-  );
-}
+  <FormField.Root path="lastName">
+    <FormField.Label />
+    <FormField.Control>
+      {({ value, onChange, onBlur, error, state }) => (
+        <Input
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          disabled={state.disabled}
+          aria-invalid={Boolean(error)}
+        />
+      )}
+    </FormField.Control>
+    <FormField.Error />
+  </FormField.Root>
+</div>
 ```
 
-`FormField` still reads from the runtime — rules, state, and validation all work the same way.
+`FormField` still reads from the runtime. Rules, state, and validation all work.
+
+## What changes and what stays the same
+
+**What changes:**
+- Input components are declared once in `renderers.tsx`, not repeated per form
+- Label, error, and shell styles are declared once in `fieldSlots`, not repeated per form
+- Adding a field type means one new renderer, one new map entry — nothing else
+
+**What stays the same:**
+- Individual forms can override specific renderers when needed
+- `FormField` is always available for fields that need manual layout
+- All renderer props (`value`, `onChange`, `state`, `error`, `options`) are the same regardless of which component library you use
 
 ## See also
 
-- [Customization](/docs/guides/customization) — decision guide for slots vs renderer map vs manual composition
+- [Customization](/docs/guides/customization) — decision guide: slots vs renderer map vs manual composition
 - [React API](/docs/reference/react-api) — `FieldRendererComponent`, `FieldRendererSlots`, `createDefaultRendererMaps`
 - [Custom Renderer](/docs/guides/custom-renderer) — building a reusable renderer with `FieldComposer`

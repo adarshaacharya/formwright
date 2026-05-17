@@ -1,0 +1,345 @@
+---
+sidebar_position: 7
+---
+
+# Using Zod (or Yup) for Validation
+
+Formwright's built-in validation handles the common cases well: required fields, min/max length, format checks, conditional required driven by rules. But two situations push past what it covers:
+
+- **Cross-field validation** — "confirm password must match password", "end date must be after start date"
+- **Reusing an existing schema** — your team already maintains a Zod schema for the API endpoint; duplicating those rules in Formwright field definitions means two sources of truth
+
+The fix is the same in both cases: pass a Zod (or Yup) resolver to `FormRuntimeProvider` and let it handle all validation logic. Formwright handles structure, layout, and conditional field state. Your schema library handles what it's already good at.
+
+## What usually breaks first
+
+Take a signup form with a password confirmation field. Formwright's rule engine is built for visibility, required state, and value effects — not custom validation messages.
+
+```tsx title="SignupForm.tsx (ad-hoc)"
+import { useForm } from "react-hook-form";
+
+export function SignupForm() {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  const password = watch("password");
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <input {...register("email", { required: "Required" })} />
+      <input
+        type="password"
+        {...register("password", {
+          required: "Required",
+          minLength: { value: 8, message: "At least 8 characters" },
+        })}
+      />
+      <input
+        type="password"
+        {...register("confirmPassword", {
+          required: "Required",
+          validate: (v) => v === password || "Passwords do not match",
+        })}
+      />
+      {errors.confirmPassword && <span>{errors.confirmPassword.message}</span>}
+      <button type="submit">Sign up</button>
+    </form>
+  );
+}
+```
+
+This works for one form. The problems show up at scale.
+
+**Validation duplicated from the backend.** Your API validates email format, password strength, and uniqueness. The frontend re-declares all of it in `register()` options — two places to update when requirements change.
+
+**Cross-field validation is ad-hoc.** The `watch("password")` pattern works but isn't composable. A second field that depends on the same value gets its own `watch` call.
+
+**No shared schema.** If you're using tRPC or Zod on the server, your frontend is writing validation rules from scratch rather than importing the same schema.
+
+---
+
+## With Formwright + Zod (after)
+
+Define a Zod schema. Pass it to `FormRuntimeProvider` via `validationResolver`. Formwright handles structure and conditional state; Zod handles all validation logic.
+
+### Install the resolver
+
+```bash
+npm install zod @hookform/resolvers
+```
+
+### Zod schema
+
+```ts title="schemas/signup-schema.ts"
+import { z } from "zod";
+
+export const signupSchema = z
+  .object({
+    email: z
+      .string()
+      .min(1, "Required")
+      .email("Enter a valid email"),
+
+    password: z
+      .string()
+      .min(1, "Required")
+      .min(8, "At least 8 characters")
+      .regex(/[A-Z]/, "Must include an uppercase letter")
+      .regex(/[0-9]/, "Must include a number"),
+
+    confirmPassword: z.string().min(1, "Required"),
+
+    plan: z.enum(["starter", "pro", "enterprise"], {
+      errorMap: () => ({ message: "Select a plan" }),
+    }),
+
+    // Only required when plan is enterprise
+    companyName: z.string().optional(),
+  })
+  // Cross-field validation — impossible with Formwright rules alone
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .refine(
+    (data) => data.plan !== "enterprise" || (data.companyName?.length ?? 0) > 0,
+    {
+      message: "Company name is required for Enterprise",
+      path: ["companyName"],
+    }
+  );
+
+export type SignupValues = z.infer<typeof signupSchema>;
+```
+
+### Formwright schema
+
+Formwright still owns layout and conditional field state. Don't repeat validation rules here — Zod is the single source. Use `rule.when(...).require()` only for the UI required indicator (asterisk on the label), not for validation.
+
+```ts title="schemas/signup-form.ts"
+import { buildForm, defineForm, field, layout, rule, fieldRef } from "formwright/schema";
+
+const email = field.email("email", { label: "Email" });
+
+const password = field.text("password", {
+  label: "Password",
+  componentProps: { type: "password" },
+});
+
+const confirmPassword = field.text("confirmPassword", {
+  label: "Confirm password",
+  componentProps: { type: "password" },
+});
+
+const plan = field.select("plan", {
+  label: "Plan",
+  options: [
+    { value: "starter", label: "Starter" },
+    { value: "pro", label: "Pro" },
+    { value: "enterprise", label: "Enterprise" },
+  ],
+});
+
+const companyName = field.text("companyName", { label: "Company name" });
+
+export const signupForm = buildForm({
+  form: defineForm({ id: "signup" }),
+  fields: [email, password, confirmPassword, plan, companyName],
+  layout: layout.stack("root", [
+    layout.field(email),
+    layout.field(password),
+    layout.field(confirmPassword),
+    layout.field(plan),
+    layout.field(companyName),
+  ]),
+  rules: [
+    // Show companyName only for enterprise — Formwright handles this
+    rule.when(fieldRef(plan).eq("enterprise")).show(companyName),
+    rule.when(fieldRef(plan).neq("enterprise")).hide(companyName),
+    // Mark as required for the UI indicator — Zod validates the actual value
+    rule.when(fieldRef(plan).eq("enterprise")).require(companyName),
+  ],
+});
+```
+
+### Wire it together
+
+```tsx title="SignupPage.tsx"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { signupForm } from "./schemas/signup-form";
+import { signupSchema } from "./schemas/signup-schema";
+
+export function SignupPage() {
+  const runtime = useCreateFormRuntime({
+    form: signupForm,
+    plugins: registerBasicPlugins(),
+  });
+
+  async function onSubmit(values: Record<string, unknown>) {
+    await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+  }
+
+  return (
+    <FormRuntimeProvider
+      runtime={runtime}
+      validationResolver={zodResolver(signupSchema)}
+      hiddenFieldPolicy="clear"
+      onSubmit={onSubmit}
+    >
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+`zodResolver(signupSchema)` is a standard RHF resolver. Formwright passes it directly to `useForm({ resolver })`. Field paths in Zod errors (`confirmPassword`, `companyName`) must match field paths in the Formwright schema for errors to appear inline.
+
+---
+
+## How they divide responsibility
+
+| Concern | Formwright | Zod / Yup |
+|---|---|---|
+| Field visibility | ✓ `rule.when(...).show()` | — |
+| Required UI indicator | ✓ `rule.when(...).require()` | — |
+| Field value mutations | ✓ `rule.when(...).setValue()` | — |
+| Layout, sections, steps | ✓ schema layout | — |
+| Required validation message | — | ✓ `.min(1, "Required")` |
+| Format validation | — | ✓ `.email()`, `.regex()` |
+| Cross-field validation | — | ✓ `.refine()` |
+| Complex business rules | — | ✓ `.superRefine()` |
+
+Formwright rules fire synchronously on every value change — they control what the user sees. Zod runs on change and submit — it controls what errors appear.
+
+## Important: don't double-declare validation
+
+When `validationResolver` is set, Zod handles all validation. Formwright also passes its own field-level rules (from `required`, `minLength`, `pattern` in field definitions) to RHF internally — both run and errors merge.
+
+To avoid double errors and conflicting messages: if you're using a resolver, leave validation options off field definitions and put everything in Zod.
+
+```ts
+// ✓ do this when using a resolver
+const email = field.email("email", { label: "Email" });
+
+// ✗ avoid this — Zod already validates, field rules also fire
+const email = field.email("email", { label: "Email", required: true, minLength: 5 });
+```
+
+## Injecting server errors
+
+After submission, the backend may return field-level errors. Inject them back into the form with `useFormContext().setError()`. Error paths must match Formwright field paths.
+
+```tsx title="components/ServerErrorForm.tsx"
+import { useFormContext } from "react-hook-form";
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signupForm } from "./schemas/signup-form";
+import { signupSchema } from "./schemas/signup-schema";
+
+function FormWithServerErrors() {
+  const { setError } = useFormContext();
+
+  async function handleSubmit(values: Record<string, unknown>) {
+    const response = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+
+    if (!response.ok) {
+      const { errors } = await response.json();
+      // errors: [{ field: "email", message: "Already taken" }]
+      for (const err of errors) {
+        setError(err.field, { type: "server", message: err.message });
+      }
+      return;
+    }
+
+    // success...
+  }
+
+  return <form onSubmit={handleSubmit}><FormRuntimeRoot rootLayoutId="root" /></form>;
+}
+
+export function SignupPage() {
+  const runtime = useCreateFormRuntime({
+    form: signupForm,
+    plugins: registerBasicPlugins(),
+  });
+
+  return (
+    <FormRuntimeProvider
+      runtime={runtime}
+      validationResolver={zodResolver(signupSchema)}
+    >
+      <FormWithServerErrors />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+Server errors appear inline on the field, exactly like client validation errors.
+
+## Yup works the same way
+
+Swap `zodResolver` for `yupResolver` — the pattern is identical.
+
+```ts title="schemas/signup-schema-yup.ts"
+import * as yup from "yup";
+
+export const signupSchema = yup.object({
+  email: yup.string().required("Required").email("Enter a valid email"),
+
+  password: yup
+    .string()
+    .required("Required")
+    .min(8, "At least 8 characters"),
+
+  confirmPassword: yup
+    .string()
+    .required("Required")
+    .oneOf([yup.ref("password")], "Passwords do not match"),
+
+  plan: yup.string().required("Select a plan"),
+
+  companyName: yup.string().when("plan", {
+    is: "enterprise",
+    then: (s) => s.required("Company name is required for Enterprise"),
+    otherwise: (s) => s.optional(),
+  }),
+});
+```
+
+```tsx
+import { yupResolver } from "@hookform/resolvers/yup";
+
+<FormRuntimeProvider
+  runtime={runtime}
+  validationResolver={yupResolver(signupSchema)}
+>
+```
+
+Yup's `.when()` handles the same conditional required logic as Zod's `.refine()` — use whichever your team already has.
+
+## What changes and what stays the same
+
+**What changes:**
+- Validation logic moves from scattered `register()` options into a single Zod/Yup schema
+- Cross-field validation (password match, date ranges, conditional required) is now expressible
+- Backend and frontend share the same schema type if using tRPC or Zod on the server
+
+**What stays the same:**
+- Formwright still handles show/hide, value mutations, and layout
+- `state.required` still reflects Formwright's runtime required state (for the asterisk indicator)
+- Field errors appear inline, same as with Formwright's built-in validation
+- Server error injection via `setError()` works unchanged
+
+## See also
+
+- [Validation](/docs/guides/validation) — Formwright's built-in validation options
+- [Conditional Fields](/docs/guides/conditional-fields) — `require` rule effect and its relationship to validation
+- [React API](/docs/reference/react-api) — `FormRuntimeProvider` `validationResolver` prop

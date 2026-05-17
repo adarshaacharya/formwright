@@ -2,29 +2,113 @@
 sidebar_position: 6
 ---
 
-# Array Fields
+# Dynamic Lists Without the State Juggling
 
-Add and remove repeated field groups — line items, addresses, attendees, or any variable-length list.
+Forms that let users add and remove rows — line items, addresses, contacts, attendees — are deceptively hard to build well. State management, validation, default values, and index tracking all need to stay in sync. Most implementations drift toward hand-rolled state that bypasses RHF entirely.
 
-## Schema
+This guide shows how Formwright handles repeating field groups, from a simple one-liner schema to a fully custom grid layout.
 
-Use `field.objectArray` for lists of objects (most common case). Each item has its own field definitions.
+## What we're building
+
+An invoice form with a dynamic line items table. Each row has: item name, quantity, unit price, and a taxable flag. Users can add rows, remove rows, and submit the whole list.
+
+## What it usually looks like (before)
+
+Manual state, no RHF integration, no schema validation.
+
+```tsx title="InvoiceForm.tsx"
+import { useState } from "react";
+
+type LineItem = { name: string; qty: number; price: number; taxable: boolean };
+
+const EMPTY_ITEM: LineItem = { name: "", qty: 1, price: 0, taxable: false };
+
+export function InvoiceForm() {
+  const [items, setItems] = useState<LineItem[]>([EMPTY_ITEM]);
+
+  function add() {
+    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
+  }
+
+  function remove(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function update(index: number, key: keyof LineItem, value: unknown) {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [key]: value } : item))
+    );
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // items is separate from any RHF state — have to merge manually
+    console.log(items);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {items.map((item, i) => (
+        <div key={i}>  {/* ← unstable key = broken focus on re-render */}
+          <input
+            value={item.name}
+            onChange={(e) => update(i, "name", e.target.value)}
+            placeholder="Item name"
+          />
+          <input
+            type="number"
+            value={item.qty}
+            onChange={(e) => update(i, "qty", Number(e.target.value))}
+          />
+          <input
+            type="number"
+            value={item.price}
+            onChange={(e) => update(i, "price", Number(e.target.value))}
+          />
+          <input
+            type="checkbox"
+            checked={item.taxable}
+            onChange={(e) => update(i, "taxable", e.target.checked)}
+          />
+          <button type="button" onClick={() => remove(i)}>Remove</button>
+        </div>
+      ))}
+      <button type="button" onClick={add}>Add item</button>
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+**No validation.** An empty `name` or negative `qty` submits fine.
+
+**Unstable keys.** Using array index as key breaks focus when items are removed mid-list.
+
+**Disconnected from RHF.** If the rest of your form uses RHF, line items live in separate state that must be merged at submit time. Easy to forget. Easy to get wrong.
+
+**No minimum.** Nothing stops the user from removing all rows and submitting an empty list.
+
+---
+
+## With Formwright (after)
+
+Declare the array field in the schema. The runtime handles stable IDs, default values, and validation.
 
 ```ts title="invoice-form.ts"
-import { buildForm, defineForm, field, layout, rule, fieldRef } from "formwright/schema";
+import { buildForm, defineForm, field, layout } from "formwright/schema";
 
 const lineItems = field.objectArray("lineItems", {
   label: "Line items",
   item: {
     kind: "object",
     fields: {
-      name: field.textItem({ label: "Item", default: "" }),
-      qty: field.numberItem({ label: "Qty" }),
-      price: field.numberItem({ label: "Unit price" }),
+      name:    field.textItem({ label: "Item", default: "" }),
+      qty:     field.numberItem({ label: "Qty" }),
+      price:   field.numberItem({ label: "Unit price" }),
       taxable: field.booleanItem({ label: "Taxable" }),
     },
   },
-  minItems: 1,
+  minItems: 1,   // at least one row required
   maxItems: 20,
 });
 
@@ -40,18 +124,7 @@ export const invoiceForm = buildForm({
 });
 ```
 
-For primitive lists (tags, emails), use `field.stringItem()`:
-
-```ts
-const tags = field.array("tags", {
-  label: "Tags",
-  item: field.stringItem(),
-});
-```
-
-## Auto-layout rendering
-
-`FormRuntimeRoot` renders `objectArray` fields using its default array renderer. It provides add/remove buttons and renders each item's fields in order.
+The auto-layout renderer handles add/remove. Each item gets a stable ID from the engine — no index keys, no broken focus.
 
 ```tsx title="InvoicePage.tsx"
 import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
@@ -72,11 +145,11 @@ export function InvoicePage() {
 }
 ```
 
-## Custom array layout with `FormArray`
+## Custom layout with `FormArray`
 
-Use `FormArray` when you need control over the item layout — side-by-side columns, custom add/remove triggers, drag handles, etc.
+The default renderer stacks fields vertically. For a table layout, use `FormArray` compound components to control the markup.
 
-```tsx title="LineItemsField.tsx"
+```tsx title="components/LineItemsField.tsx"
 import { FormArray, FormField } from "formwright/react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,7 +160,7 @@ export function LineItemsField() {
   return (
     <FormArray.Root path="lineItems">
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 text-sm font-medium text-muted-foreground mb-1 px-1">
+      <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 px-1 mb-1 text-sm font-medium text-muted-foreground">
         <span>Item</span>
         <span>Qty</span>
         <span>Unit price</span>
@@ -98,7 +171,7 @@ export function LineItemsField() {
       <FormArray.Items>
         {(item, index) => (
           <FormArray.Item key={item.id} index={index}>
-            <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 items-start">
+            <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 items-start mb-2">
               <FormField.Root path={`lineItems.${index}.name`}>
                 <FormField.Control>
                   {({ value, onChange, error }) => (
@@ -167,71 +240,51 @@ export function LineItemsField() {
 }
 ```
 
-Use this inside `FormRuntimeProvider` alongside `FormRuntimeRoot`, or as a standalone section in a fully manual layout.
+`item.id` is a stable engine-generated ID — safe to use as the `key` prop. No index keys, no broken focus on remove.
 
-## Using the hook directly
-
-`useFormArray` gives access to the array state and mutation functions without the compound components:
+Use `LineItemsField` inside your `FormRuntimeProvider`:
 
 ```tsx
-import { useFormArray } from "formwright/react";
-
-function LineItemControls() {
-  const { items, append, remove, disabled } = useFormArray("lineItems");
-
-  return (
-    <div>
-      <span>{items.length} items</span>
-      <button type="button" onClick={() => append()} disabled={disabled}>
-        Add item
-      </button>
-    </div>
-  );
-}
+<FormRuntimeProvider runtime={runtime}>
+  <LineItemsField />
+  <FormField.Root path="notes">
+    <FormField.Label />
+    <FormField.Control />
+  </FormField.Root>
+</FormRuntimeProvider>
 ```
 
-`append()` with no argument auto-builds the default item from field definitions. Pass a value to pre-fill:
+## Direct hook access
+
+`useFormArray` gives you the array state and mutation methods without the compound components:
+
+```tsx
+const { items, append, remove, disabled } = useFormArray("lineItems");
+```
+
+`append()` with no argument creates a new item using the defaults from the schema. Pass a value to pre-fill:
 
 ```ts
 append({ name: "Consulting", qty: 1, price: 150, taxable: false });
 ```
 
-## Conditional logic inside array items
+Useful for duplicating rows, importing from a template, or seeding items from an API response.
 
-Rules apply to individual item fields using dot-path references with index. But since indices are dynamic, use a computed path pattern inside the renderer:
+## What changes and what stays the same
 
-```tsx
-<FormField.Root path={`lineItems.${index}.price`}>
-  <FormField.Control>
-    {({ value, onChange, state }) => (
-      <Input
-        value={value == null ? "" : String(value)}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={state.disabled}   // runtime derived state still works per-item
-      />
-    )}
-  </FormField.Control>
-</FormField.Root>
-```
+**What changes:**
+- Array state moves from `useState` into the schema and RHF (via the runtime)
+- Stable item IDs are generated by the engine — no index key bugs
+- Validation (min/max items, required fields per row) is declared in the schema
+- Default values per item field come from schema, not scattered `EMPTY_ITEM` constants
 
-`state.disabled`, `state.required`, and `state.visible` all reflect runtime-evaluated rules for that specific index path.
-
-## Validation
-
-Set constraints in the field definition:
-
-```ts
-field.objectArray("lineItems", {
-  item: { kind: "object", fields: { ... } },
-  minItems: 1,     // at least one item required
-  maxItems: 20,    // cap at 20
-})
-```
-
-Validate individual item fields the same way as top-level fields — via `required`, `minLength`, `minimum`, etc. on the item field definitions.
+**What stays the same:**
+- Submit payload is a flat RHF object — `lineItems` is a normal array in `values`
+- You still compose field inputs manually with `FormField.Control` if you need custom markup
+- Runtime state (`disabled`, `visible`) applies per-item via the dot-path field reference
 
 ## See also
 
 - [React API](/docs/reference/react-api) — `FormArray`, `useFormArray`, `FormField`
-- [Schema API](/docs/reference/schema-api) — `field.array`, `field.objectArray`, array item helpers
-- [Bring Your Own Components](/docs/cookbook/design-system-wiring) — wire array renderers to your design system
+- [Schema API](/docs/reference/schema-api) — `field.array`, `field.objectArray`, item helpers
+- [Bring Your Own Components](/docs/cookbook/design-system-wiring) — wire array fields to your design system

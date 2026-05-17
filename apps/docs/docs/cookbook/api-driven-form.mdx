@@ -2,32 +2,46 @@
 sidebar_position: 2
 ---
 
-# API-Driven Form Renderer
+# Let the Backend Own the Form
 
-Build a single `DynamicForm` component that fetches and renders any form schema your backend returns — no hardcoded field definitions in the frontend.
+Every time a business requirement changes a form field, someone has to open a PR, get it reviewed, merge it, and deploy. For teams with many forms or frequent iterations, this cycle adds up fast.
 
-## The pattern
+The alternative: your backend stores form definitions and the frontend renders whatever it receives. Adding a field is a backend change. No frontend deploy needed.
 
-Your backend owns form definitions. The frontend:
+## The problem with hardcoded schemas
 
-1. Fetches the schema by `formId`
-2. Renders whatever the backend returns
-3. Submits values back with schema metadata attached
+When form schemas live in the frontend, you get:
 
-Adding a new form means deploying a backend change only. The frontend stays unchanged.
+- A deploy cycle for every field change, label tweak, or validation update
+- Different tenants or user roles can't see different form variants without feature flags
+- A/B testing form layouts means branching frontend code
+- The backend validates with one set of rules, the frontend with another — they drift
+
+The root cause is that the frontend is making decisions it doesn't need to make.
+
+## What backend-driven forms look like
+
+Your backend returns a `RemoteFormPayload` — a versioned JSON object describing the form. The frontend validates it, creates a runtime, and renders.
+
+```
+GET /api/forms/onboarding
+↓
+RemoteFormPayload (JSON)
+↓
+parseRemoteFormPayload()   ← validates the shape
+↓
+createFormRuntime({ form: payload.form })
+↓
+<FormRuntimeRoot />
+```
+
+The frontend doesn't know what fields exist. It renders whatever arrives.
 
 ## API contract
 
-Your backend needs two endpoints:
+Your backend endpoint must return a `RemoteFormPayload`. Formwright validates the shape on load — if the backend returns something malformed, you get a typed error with the exact path that failed, not a cryptic runtime crash.
 
-```
-GET  /api/forms/:formId         → RemoteFormPayload
-POST /api/forms/:formId/submit  → { ok: true } | { errors: [...] }
-```
-
-The `GET` response must match the `RemoteFormPayload` shape:
-
-```json
+```json title="GET /api/forms/onboarding"
 {
   "version": "1.0",
   "form": {
@@ -37,13 +51,13 @@ The `GET` response must match the `RemoteFormPayload` shape:
       "rootType": "object",
       "fields": {
         "companyName": { "valueType": "string", "required": true },
-        "teamSize": { "valueType": "integer" }
+        "teamSize":    { "valueType": "integer" }
       }
     },
     "uiSchema": {
       "nodes": {
-        "companyName": { "fieldType": "text", "label": "Company name" },
-        "teamSize": { "fieldType": "number", "label": "Team size" }
+        "companyName": { "fieldType": "text",    "label": "Company name" },
+        "teamSize":    { "fieldType": "number",  "label": "Team size" }
       },
       "layout": {
         "type": "stack",
@@ -55,9 +69,7 @@ The `GET` response must match the `RemoteFormPayload` shape:
       }
     }
   },
-  "initialValues": {
-    "companyName": "Acme Corp"
-  },
+  "initialValues": { "companyName": "Acme Corp" },
   "meta": {
     "schemaId": "onboarding",
     "schemaVersion": "2026-05-01"
@@ -65,7 +77,11 @@ The `GET` response must match the `RemoteFormPayload` shape:
 }
 ```
 
+`initialValues` pre-fills fields. `meta` is forwarded to the submit payload so the backend knows which version was rendered.
+
 ## The `DynamicForm` component
+
+Split loading from rendering — `useCreateFormRuntime` must be called after the schema arrives.
 
 ```tsx title="components/DynamicForm.tsx"
 import {
@@ -77,6 +93,7 @@ import {
 import { registerBasicPlugins } from "formwright/plugins";
 import { registerAsyncPlugins } from "formwright/plugins-async";
 import { loadRemoteForm, RemoteSchemaValidationError } from "formwright/remote";
+import type { RemoteFormPayload } from "formwright/remote";
 
 interface DynamicFormProps {
   formId: string;
@@ -87,10 +104,7 @@ export function DynamicForm({ formId, onSuccess }: DynamicFormProps) {
   const { status, payload, error, isFetching } = useRemoteFormDefinition({
     key: `form:${formId}`,
     loader: ({ signal }) =>
-      loadRemoteForm({
-        url: `/api/forms/${formId}`,
-        init: { signal },
-      }),
+      loadRemoteForm({ url: `/api/forms/${formId}`, init: { signal } }),
     staleTimeMs: 5 * 60 * 1000,
     retry: 1,
   });
@@ -99,77 +113,62 @@ export function DynamicForm({ formId, onSuccess }: DynamicFormProps) {
 
   if (status === "error") {
     if (error instanceof RemoteSchemaValidationError) {
-      return <SchemaErrorBoundary issues={error.issues} />;
+      // In development, show the exact path that failed.
+      // In production, show a generic message.
+      return <SchemaError issues={error.issues} />;
     }
     return <p>Failed to load form: {error?.message}</p>;
   }
 
   if (!payload) return null;
 
-  return (
-    <LoadedForm
-      payload={payload}
-      isFetching={isFetching}
-      onSuccess={onSuccess}
-    />
-  );
+  return <LoadedForm payload={payload} isFetching={isFetching} onSuccess={onSuccess} />;
 }
-```
 
-The schema loading and rendering are split into two components because `useCreateFormRuntime` must be called after the schema is available.
-
-```tsx title="components/DynamicForm.tsx (continued)"
-import type { RemoteFormPayload } from "formwright/remote";
-import { useForm } from "react-hook-form";
-
-interface LoadedFormProps {
+// Separate component because useCreateFormRuntime must be called
+// after the schema is available — not conditionally.
+function LoadedForm({
+  payload,
+  isFetching,
+  onSuccess,
+}: {
   payload: RemoteFormPayload;
   isFetching: boolean;
   onSuccess?: (formId: string) => void;
-}
-
-function LoadedForm({ payload, isFetching, onSuccess }: LoadedFormProps) {
+}) {
   const runtime = useCreateFormRuntime({
     form: payload.form,
     plugins: [...registerBasicPlugins(), ...registerAsyncPlugins()],
   });
 
   async function handleSubmit(values: Record<string, unknown>) {
-    const formId = payload.form.formId;
-
-    const response = await fetch(`/api/forms/${formId}/submit`, {
+    const response = await fetch(`/api/forms/${payload.form.formId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        values,
-        meta: payload.meta,
-      }),
+      body: JSON.stringify({ values, meta: payload.meta }),
     });
 
-    if (!response.ok) {
-      const { errors } = await response.json();
-      // errors is an array of { field, message } objects from the backend
-      throw new Error(errors?.[0]?.message ?? "Submission failed");
-    }
-
-    onSuccess?.(formId);
+    if (!response.ok) throw new Error("Submission failed");
+    onSuccess?.(payload.form.formId);
   }
 
   return (
-    <div>
-      {isFetching && <p>Updating schema...</p>}
+    <>
+      {isFetching && <p className="text-sm text-muted-foreground">Updating schema…</p>}
       <FormRuntimeProvider
         runtime={runtime}
         initialValues={payload.initialValues}
         hiddenFieldPolicy="clear"
         onSubmit={handleSubmit}
       >
-        <FormRuntimeRoot />
+        <FormRuntimeRoot rootLayoutId="root" />
       </FormRuntimeProvider>
-    </div>
+    </>
   );
 }
 ```
+
+`isFetching` is true when a background refresh is in progress — the form is still usable, just showing a "refreshing" indicator.
 
 ## Wire to a router
 
@@ -177,7 +176,7 @@ function LoadedForm({ payload, isFetching, onSuccess }: LoadedFormProps) {
 
 ```tsx title="pages/FormPage.tsx"
 import { useParams, useNavigate } from "react-router-dom";
-import { DynamicForm } from "../components/DynamicForm";
+import { DynamicForm } from "@/components/DynamicForm";
 
 export function FormPage() {
   const { formId } = useParams<{ formId: string }>();
@@ -191,8 +190,7 @@ export function FormPage() {
   );
 }
 
-// Route definition:
-// <Route path="/forms/:formId" element={<FormPage />} />
+// Route: <Route path="/forms/:formId" element={<FormPage />} />
 ```
 
 ### Next.js App Router
@@ -200,49 +198,24 @@ export function FormPage() {
 ```tsx title="app/forms/[formId]/page.tsx"
 import { DynamicForm } from "@/components/DynamicForm";
 
-interface Props {
-  params: { formId: string };
-}
-
-export default function FormPage({ params }: Props) {
-  return (
-    <DynamicForm
-      formId={params.formId}
-      onSuccess={() => {
-        // redirect on the client
-      }}
-    />
-  );
+export default function FormPage({ params }: { params: { formId: string } }) {
+  return <DynamicForm formId={params.formId} />;
 }
 ```
 
-## Loading and error states
+## Schema validation errors
 
-```tsx title="components/FormSkeleton.tsx"
-export function FormSkeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading form">
-      <div className="skeleton-field" />
-      <div className="skeleton-field" />
-      <div className="skeleton-button" />
-    </div>
-  );
-}
-```
+`parseRemoteFormPayload()` throws `RemoteSchemaValidationError` when the payload shape is wrong. Each `issue` has a `path` pointing to the failing field.
 
-```tsx title="components/SchemaErrorBoundary.tsx"
+```tsx title="components/SchemaError.tsx"
 import type { RemoteSchemaIssue } from "formwright/remote";
 
-interface Props {
-  issues: RemoteSchemaIssue[];
-}
-
-export function SchemaErrorBoundary({ issues }: Props) {
+export function SchemaError({ issues }: { issues: RemoteSchemaIssue[] }) {
   return (
     <div role="alert">
-      <p>This form could not be loaded due to a schema error.</p>
+      <p>This form could not be loaded.</p>
       {process.env.NODE_ENV === "development" && (
-        <ul>
+        <ul className="mt-2 text-sm font-mono">
           {issues.map((issue, i) => (
             <li key={i}>
               <code>{issue.path}</code>: {issue.message}
@@ -255,26 +228,11 @@ export function SchemaErrorBoundary({ issues }: Props) {
 }
 ```
 
-The `SchemaErrorBoundary` shows field-level parse errors in development — useful when iterating on backend schema payloads — and hides them in production.
+Dev shows the exact path. Production shows a generic message. Useful when iterating on backend schema payloads — you know immediately which field definition is wrong.
 
-## Preloading a schema
+## Send schema version with submissions
 
-If the `formId` is known ahead of navigation, preload the schema to eliminate the loading state:
-
-```ts
-import { loadRemoteForm } from "formwright/remote";
-
-// In your navigation handler, hover handler, or route loader:
-async function prefetchForm(formId: string) {
-  await loadRemoteForm({ url: `/api/forms/${formId}` });
-}
-```
-
-`useRemoteFormDefinition` reads from its internal cache keyed on `form:${formId}`, so a preloaded payload renders immediately on mount.
-
-## Sending schema version with submissions
-
-Including `meta` in the submit payload lets the backend validate the submission against the schema version that was active when the user filled out the form — useful if the schema changes between form load and submission.
+Including `meta` in the submit body lets the backend check whether the form version the user filled out matches the current schema — and reject or migrate submissions that arrive against a stale version.
 
 ```json
 POST /api/forms/onboarding/submit
@@ -288,10 +246,20 @@ POST /api/forms/onboarding/submit
 }
 ```
 
-The backend can reject or migrate submissions that arrive against an outdated schema version.
+## What changes and what stays the same
+
+**What changes:**
+- Form field definitions move to the backend — no frontend code change for field additions or label edits
+- Different tenants/roles can receive different schemas from the same endpoint
+- The deploy cycle for form changes is backend-only
+
+**What stays the same:**
+- The frontend rendering engine is the same — `FormRuntimeProvider`, `FormRuntimeRoot`, your custom renderers all work unchanged
+- Validation still runs client-side, driven by the schema the backend provides
+- You still control styling, slots, and renderer maps in the frontend
 
 ## See also
 
-- [Remote Schemas](/docs/guides/remote-schemas) — transport options, caching, and validation details
-- [Remote API](/docs/reference/remote-api) — `loadRemoteForm`, `parseRemoteFormPayload`, `RemoteSchemaValidationError`
+- [Remote Schemas](/docs/guides/remote-schemas) — caching, invalidation, RPC and GraphQL patterns
+- [Remote API](/docs/reference/remote-api) — `loadRemoteForm`, `parseRemoteFormPayload`, error types
 - [React API](/docs/reference/react-api) — `useRemoteFormDefinition`, `useCreateFormRuntime`
