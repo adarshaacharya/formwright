@@ -76,4 +76,14 @@ Full documentation at **[adarshaacharya.github.io/formwright](https://adarshaach
 
 ## License
 
-MIT
+[MIT](./LICENSE)
+
+
+## Sponsorship
+
+If you find formwright valuable and would like to support its continued development, please consider:
+
+- Sponsoring project
+- Reaching out for consulting or custom implementation at hi@adarsha.dev
+
+Or just drop casual email on what you're building using formwright in your project.
