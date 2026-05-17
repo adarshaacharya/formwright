@@ -1,0 +1,225 @@
+---
+sidebar_position: 5
+---
+
+# Multi-Step Form
+
+Split a long form into steps with per-step validation, back/next navigation, and submission only on the final step.
+
+## Schema
+
+Use `layout.stepper` to group fields into steps. Each step has an `id`, a `label`, and its own `children` layout.
+
+```ts title="onboarding-form.ts"
+import { buildForm, defineForm, field, layout, rule, fieldRef } from "formwright/schema";
+
+// Step 1 — Contact
+const email = field.email("email", { label: "Email", required: true });
+const phone = field.phone("phone", { label: "Phone" });
+
+// Step 2 — Company
+const companyName = field.text("companyName", { label: "Company name", required: true });
+const teamSize = field.select("teamSize", {
+  label: "Team size",
+  options: [
+    { value: "1-10", label: "1–10" },
+    { value: "11-50", label: "11–50" },
+    { value: "51-200", label: "51–200" },
+    { value: "200+", label: "200+" },
+  ],
+});
+
+// Step 3 — Plan
+const plan = field.select("plan", {
+  label: "Plan",
+  required: true,
+  options: [
+    { value: "starter", label: "Starter" },
+    { value: "pro", label: "Pro" },
+    { value: "enterprise", label: "Enterprise" },
+  ],
+});
+
+const billingEmail = field.email("billingEmail", { label: "Billing email" });
+
+export const onboardingForm = buildForm({
+  form: defineForm({ id: "onboarding" }),
+  fields: [email, phone, companyName, teamSize, plan, billingEmail],
+  layout: layout.stepper("root", [
+    {
+      id: "contact",
+      label: "Contact",
+      children: [
+        layout.field(email),
+        layout.field(phone),
+      ],
+    },
+    {
+      id: "company",
+      label: "Company",
+      children: [
+        layout.field(companyName),
+        layout.field(teamSize),
+      ],
+    },
+    {
+      id: "plan",
+      label: "Plan",
+      children: [
+        layout.field(plan),
+        layout.field(billingEmail),
+      ],
+    },
+  ]),
+});
+```
+
+## Custom stepper renderer
+
+Register a layout renderer for the `stepper` type. It receives all step contents as `children` and controls which step is visible.
+
+```tsx title="components/StepperRenderer.tsx"
+import React, { useState } from "react";
+import { useFormContext } from "react-hook-form";
+import type { LayoutRendererComponent } from "formwright/react";
+
+// Declare which field paths belong to each step — used for per-step validation.
+// Order must match the steps array in your schema.
+const STEP_FIELDS: string[][] = [
+  ["email", "phone"],           // step 0 — Contact
+  ["companyName", "teamSize"],  // step 1 — Company
+  ["plan", "billingEmail"],     // step 2 — Plan
+];
+
+export const StepperRenderer: LayoutRendererComponent = ({ children, layout }) => {
+  const { trigger, handleSubmit } = useFormContext();
+  const [currentStep, setCurrentStep] = useState(0);
+  const steps = (layout as any).steps ?? [];
+  const childArray = React.Children.toArray(children);
+  const isFirst = currentStep === 0;
+  const isLast = currentStep === steps.length - 1;
+
+  async function handleNext() {
+    // Validate only the fields in the current step before advancing
+    const fieldsToValidate = STEP_FIELDS[currentStep] ?? [];
+    const valid = await trigger(fieldsToValidate);
+    if (valid) setCurrentStep((s) => s + 1);
+  }
+
+  return (
+    <div>
+      {/* Step indicator */}
+      <nav aria-label="Form steps">
+        <ol className="flex gap-4 mb-6">
+          {steps.map((step: { id: string; label: string }, i: number) => (
+            <li
+              key={step.id}
+              aria-current={i === currentStep ? "step" : undefined}
+              className={i === currentStep ? "font-semibold" : "text-muted-foreground"}
+            >
+              <span className="mr-1">{i + 1}.</span>
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      </nav>
+
+      {/* Active step content */}
+      <div>{childArray[currentStep]}</div>
+
+      {/* Navigation */}
+      <div className="flex justify-between mt-6">
+        <button
+          type="button"
+          onClick={() => setCurrentStep((s) => s - 1)}
+          disabled={isFirst}
+        >
+          Back
+        </button>
+
+        {isLast ? (
+          <button type="submit">Submit</button>
+        ) : (
+          <button type="button" onClick={handleNext}>
+            Next
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+```
+
+## Render
+
+Register the renderer in `layoutRendererMap` and wire the submit handler.
+
+```tsx title="OnboardingPage.tsx"
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { StepperRenderer } from "./components/StepperRenderer";
+import { onboardingForm } from "./onboarding-form";
+
+export function OnboardingPage() {
+  const runtime = useCreateFormRuntime({
+    form: onboardingForm,
+    plugins: registerBasicPlugins(),
+  });
+
+  async function onSubmit(values: Record<string, unknown>) {
+    await fetch("/api/onboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+  }
+
+  return (
+    <FormRuntimeProvider runtime={runtime} onSubmit={onSubmit}>
+      <FormRuntimeRoot
+        rootLayoutId="root"
+        layoutRendererMap={{ stepper: StepperRenderer }}
+      />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+The `stepper` key in `layoutRendererMap` matches the layout type string from `layout.stepper(...)`.
+
+## How per-step validation works
+
+`trigger(fieldPaths)` is a React Hook Form method that runs validation for specific fields without submitting. Calling it before advancing ensures required fields are filled and formats are valid before the user proceeds.
+
+```ts
+const valid = await trigger(["email", "phone"]);
+// valid === false if email is missing or malformed
+// RHF sets errors on each invalid field automatically
+```
+
+`STEP_FIELDS` maps step index to field paths. Keep it in sync with your schema's step children.
+
+## Conditional steps
+
+Hide an entire step based on a form value using `visibleWhen` on the step. This removes it from the `children` array the renderer receives.
+
+```ts
+layout.stepper("root", [
+  { id: "contact", label: "Contact", children: [...] },
+  { id: "company", label: "Company", children: [...] },
+  {
+    id: "enterprise",
+    label: "Enterprise details",
+    children: [...],
+    visibleWhen: fieldRef(plan).eq("enterprise"),
+  },
+])
+```
+
+When the step is hidden, skip its index in `STEP_FIELDS` or guard with a null check.
+
+## See also
+
+- [Conditional Fields](/docs/guides/conditional-fields) — field-level show/hide rules
+- [Customization](/docs/guides/customization) — `layoutRendererMap` and `fieldSlots`
+- [React API](/docs/reference/react-api) — `FormRuntimeRoot` props

@@ -1,0 +1,237 @@
+---
+sidebar_position: 6
+---
+
+# Array Fields
+
+Add and remove repeated field groups — line items, addresses, attendees, or any variable-length list.
+
+## Schema
+
+Use `field.objectArray` for lists of objects (most common case). Each item has its own field definitions.
+
+```ts title="invoice-form.ts"
+import { buildForm, defineForm, field, layout, rule, fieldRef } from "formwright/schema";
+
+const lineItems = field.objectArray("lineItems", {
+  label: "Line items",
+  item: {
+    kind: "object",
+    fields: {
+      name: field.textItem({ label: "Item", default: "" }),
+      qty: field.numberItem({ label: "Qty" }),
+      price: field.numberItem({ label: "Unit price" }),
+      taxable: field.booleanItem({ label: "Taxable" }),
+    },
+  },
+  minItems: 1,
+  maxItems: 20,
+});
+
+const notes = field.textarea("notes", { label: "Notes" });
+
+export const invoiceForm = buildForm({
+  form: defineForm({ id: "invoice" }),
+  fields: [lineItems, notes],
+  layout: layout.stack("root", [
+    layout.field(lineItems),
+    layout.field(notes),
+  ]),
+});
+```
+
+For primitive lists (tags, emails), use `field.stringItem()`:
+
+```ts
+const tags = field.array("tags", {
+  label: "Tags",
+  item: field.stringItem(),
+});
+```
+
+## Auto-layout rendering
+
+`FormRuntimeRoot` renders `objectArray` fields using its default array renderer. It provides add/remove buttons and renders each item's fields in order.
+
+```tsx title="InvoicePage.tsx"
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { invoiceForm } from "./invoice-form";
+
+export function InvoicePage() {
+  const runtime = useCreateFormRuntime({
+    form: invoiceForm,
+    plugins: registerBasicPlugins(),
+  });
+
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+## Custom array layout with `FormArray`
+
+Use `FormArray` when you need control over the item layout — side-by-side columns, custom add/remove triggers, drag handles, etc.
+
+```tsx title="LineItemsField.tsx"
+import { FormArray, FormField } from "formwright/react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
+
+export function LineItemsField() {
+  return (
+    <FormArray.Root path="lineItems">
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 text-sm font-medium text-muted-foreground mb-1 px-1">
+        <span>Item</span>
+        <span>Qty</span>
+        <span>Unit price</span>
+        <span>Taxable</span>
+        <span />
+      </div>
+
+      <FormArray.Items>
+        {(item, index) => (
+          <FormArray.Item key={item.id} index={index}>
+            <div className="grid grid-cols-[1fr_80px_120px_80px_40px] gap-2 items-start">
+              <FormField.Root path={`lineItems.${index}.name`}>
+                <FormField.Control>
+                  {({ value, onChange, error }) => (
+                    <Input
+                      value={typeof value === "string" ? value : ""}
+                      onChange={(e) => onChange(e.target.value)}
+                      aria-invalid={Boolean(error)}
+                    />
+                  )}
+                </FormField.Control>
+                <FormField.Error />
+              </FormField.Root>
+
+              <FormField.Root path={`lineItems.${index}.qty`}>
+                <FormField.Control>
+                  {({ value, onChange }) => (
+                    <Input
+                      type="number"
+                      value={value == null ? "" : String(value)}
+                      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+                    />
+                  )}
+                </FormField.Control>
+              </FormField.Root>
+
+              <FormField.Root path={`lineItems.${index}.price`}>
+                <FormField.Control>
+                  {({ value, onChange }) => (
+                    <Input
+                      type="number"
+                      value={value == null ? "" : String(value)}
+                      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+                    />
+                  )}
+                </FormField.Control>
+              </FormField.Root>
+
+              <FormField.Root path={`lineItems.${index}.taxable`}>
+                <FormField.Control>
+                  {({ value, onChange }) => (
+                    <Checkbox
+                      checked={Boolean(value)}
+                      onCheckedChange={(v) => onChange(Boolean(v))}
+                    />
+                  )}
+                </FormField.Control>
+              </FormField.Root>
+
+              <FormArray.Remove index={index}>
+                <Button variant="ghost" size="icon" type="button">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </FormArray.Remove>
+            </div>
+          </FormArray.Item>
+        )}
+      </FormArray.Items>
+
+      <FormArray.Add>
+        <Button variant="outline" size="sm" type="button" className="mt-2">
+          + Add line item
+        </Button>
+      </FormArray.Add>
+    </FormArray.Root>
+  );
+}
+```
+
+Use this inside `FormRuntimeProvider` alongside `FormRuntimeRoot`, or as a standalone section in a fully manual layout.
+
+## Using the hook directly
+
+`useFormArray` gives access to the array state and mutation functions without the compound components:
+
+```tsx
+import { useFormArray } from "formwright/react";
+
+function LineItemControls() {
+  const { items, append, remove, disabled } = useFormArray("lineItems");
+
+  return (
+    <div>
+      <span>{items.length} items</span>
+      <button type="button" onClick={() => append()} disabled={disabled}>
+        Add item
+      </button>
+    </div>
+  );
+}
+```
+
+`append()` with no argument auto-builds the default item from field definitions. Pass a value to pre-fill:
+
+```ts
+append({ name: "Consulting", qty: 1, price: 150, taxable: false });
+```
+
+## Conditional logic inside array items
+
+Rules apply to individual item fields using dot-path references with index. But since indices are dynamic, use a computed path pattern inside the renderer:
+
+```tsx
+<FormField.Root path={`lineItems.${index}.price`}>
+  <FormField.Control>
+    {({ value, onChange, state }) => (
+      <Input
+        value={value == null ? "" : String(value)}
+        onChange={(e) => onChange(Number(e.target.value))}
+        disabled={state.disabled}   // runtime derived state still works per-item
+      />
+    )}
+  </FormField.Control>
+</FormField.Root>
+```
+
+`state.disabled`, `state.required`, and `state.visible` all reflect runtime-evaluated rules for that specific index path.
+
+## Validation
+
+Set constraints in the field definition:
+
+```ts
+field.objectArray("lineItems", {
+  item: { kind: "object", fields: { ... } },
+  minItems: 1,     // at least one item required
+  maxItems: 20,    // cap at 20
+})
+```
+
+Validate individual item fields the same way as top-level fields — via `required`, `minLength`, `minimum`, etc. on the item field definitions.
+
+## See also
+
+- [React API](/docs/reference/react-api) — `FormArray`, `useFormArray`, `FormField`
+- [Schema API](/docs/reference/schema-api) — `field.array`, `field.objectArray`, array item helpers
+- [Bring Your Own Components](/docs/cookbook/design-system-wiring) — wire array renderers to your design system

@@ -1,0 +1,511 @@
+---
+sidebar_position: 1
+---
+
+# From Ad-hoc to Schema
+
+Most teams reach for Formwright after their forms outgrow plain React state. This guide shows a realistic conditional form built the traditional way, then rebuilds it with Formwright — so you can see exactly what changes and what you gain.
+
+## The form we'll build
+
+A support ticket form with conditional fields:
+
+- **Request type** — billing, technical, or account
+- If `billing`: invoice number (required), billing email
+- If `technical`: product (async dropdown), severity, description
+- If `account`: account ID, action type
+
+## Ad-hoc React (before)
+
+This is the pattern most teams end up with. Each conditional field is managed by hand.
+
+```tsx title="SupportForm.tsx"
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+
+const SEVERITIES = ["low", "medium", "high", "critical"];
+
+export function SupportForm() {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  const requestType = watch("requestType");
+  const isBilling = requestType === "billing";
+  const isTechnical = requestType === "technical";
+  const isAccount = requestType === "account";
+
+  // Async option loading: every select that needs it gets its own useEffect
+  useEffect(() => {
+    if (!isTechnical) return;
+    setLoadingProducts(true);
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(data))
+      .finally(() => setLoadingProducts(false));
+  }, [isTechnical]);
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <select {...register("requestType", { required: true })}>
+        <option value="">Select type</option>
+        <option value="billing">Billing</option>
+        <option value="technical">Technical</option>
+        <option value="account">Account</option>
+      </select>
+      {errors.requestType && <span>Required</span>}
+
+      {/* Billing fields — conditionally rendered */}
+      {isBilling && (
+        <>
+          <input
+            {...register("invoiceNumber", {
+              required: isBilling ? "Invoice number is required" : false,
+            })}
+            placeholder="Invoice number"
+          />
+          {errors.invoiceNumber && <span>{errors.invoiceNumber.message}</span>}
+
+          <input
+            {...register("billingEmail", {
+              pattern: {
+                value: /^[^@]+@[^@]+$/,
+                message: "Invalid email",
+              },
+            })}
+            placeholder="Billing email"
+          />
+          {errors.billingEmail && <span>{errors.billingEmail.message}</span>}
+        </>
+      )}
+
+      {/* Technical fields */}
+      {isTechnical && (
+        <>
+          <select
+            {...register("product", { required: isTechnical ? "Required" : false })}
+            disabled={loadingProducts}
+          >
+            <option value="">Select product</option>
+            {products.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+
+          <select {...register("severity", { required: isTechnical ? "Required" : false })}>
+            <option value="">Severity</option>
+            {SEVERITIES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          <textarea
+            {...register("description", {
+              required: isTechnical ? "Required" : false,
+              minLength: { value: 20, message: "At least 20 characters" },
+            })}
+            placeholder="Describe the issue"
+          />
+          {errors.description && <span>{errors.description.message}</span>}
+        </>
+      )}
+
+      {/* Account fields */}
+      {isAccount && (
+        <>
+          <input
+            {...register("accountId", { required: isAccount ? "Required" : false })}
+            placeholder="Account ID"
+          />
+          <select {...register("actionType")}>
+            <option value="upgrade">Upgrade</option>
+            <option value="downgrade">Downgrade</option>
+            <option value="cancel">Cancel</option>
+          </select>
+        </>
+      )}
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### Problems with this approach
+
+**Conditional `required` is fragile.** Every `register()` call must repeat the condition — `required: isBilling ? "..." : false`. Miss one and validation fires on hidden fields.
+
+**Async loading is ad-hoc.** Each select that needs remote options gets its own `useState` + `useEffect`. There's no standard pattern.
+
+**Submit payload includes hidden fields.** If a user selects "billing", fills in fields, then switches to "technical", the billing values are still in the payload unless you manually `unregister`.
+
+**No reuse.** This logic is baked into the component. A second form that shares any of these rules means copy-pasting.
+
+---
+
+## Formwright schema (after)
+
+Define the form once. The engine handles conditional logic, validation, and data loading.
+
+```ts title="support-form.ts"
+import {
+  buildForm,
+  defineForm,
+  field,
+  layout,
+  rule,
+  datasource,
+  fieldRef,
+} from "formwright/schema";
+
+// 1. Define fields
+const requestType = field.select("requestType", {
+  label: "Request type",
+  options: [
+    { value: "billing", label: "Billing" },
+    { value: "technical", label: "Technical" },
+    { value: "account", label: "Account" },
+  ],
+});
+
+// Billing fields
+const invoiceNumber = field.text("invoiceNumber", { label: "Invoice number" });
+const billingEmail = field.email("billingEmail", { label: "Billing email" });
+
+// Technical fields
+const productSource = datasource.remote("products", { url: "/api/products" });
+const product = field.select("product", {
+  label: "Product",
+  datasource: productSource,
+});
+const severity = field.select("severity", {
+  label: "Severity",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+    { value: "critical", label: "Critical" },
+  ],
+});
+const description = field.textarea("description", {
+  label: "Description",
+  validation: { minLength: 20 },
+});
+
+// Account fields
+const accountId = field.text("accountId", { label: "Account ID" });
+const actionType = field.select("actionType", {
+  label: "Action",
+  options: [
+    { value: "upgrade", label: "Upgrade" },
+    { value: "downgrade", label: "Downgrade" },
+    { value: "cancel", label: "Cancel" },
+  ],
+});
+
+// 2. Compose into a form
+export const supportForm = buildForm({
+  form: defineForm({ id: "support-ticket" }),
+  fields: [
+    requestType,
+    invoiceNumber, billingEmail,
+    product, severity, description,
+    accountId, actionType,
+  ],
+  layout: layout.stack("root", [
+    layout.field(requestType),
+    layout.field(invoiceNumber),
+    layout.field(billingEmail),
+    layout.field(product),
+    layout.field(severity),
+    layout.field(description),
+    layout.field(accountId),
+    layout.field(actionType),
+  ]),
+  // 3. Declare rules — engine evaluates these on every change
+  rules: [
+    // Billing
+    rule.when(fieldRef(requestType).eq("billing")).show(invoiceNumber),
+    rule.when(fieldRef(requestType).eq("billing")).show(billingEmail),
+    rule.when(fieldRef(requestType).eq("billing")).require(invoiceNumber),
+    rule.when(fieldRef(requestType).neq("billing")).hide(invoiceNumber),
+    rule.when(fieldRef(requestType).neq("billing")).hide(billingEmail),
+
+    // Technical
+    rule.when(fieldRef(requestType).eq("technical")).show(product),
+    rule.when(fieldRef(requestType).eq("technical")).show(severity),
+    rule.when(fieldRef(requestType).eq("technical")).show(description),
+    rule.when(fieldRef(requestType).eq("technical")).require(product),
+    rule.when(fieldRef(requestType).eq("technical")).require(severity),
+    rule.when(fieldRef(requestType).eq("technical")).require(description),
+    rule.when(fieldRef(requestType).neq("technical")).hide(product),
+    rule.when(fieldRef(requestType).neq("technical")).hide(severity),
+    rule.when(fieldRef(requestType).neq("technical")).hide(description),
+
+    // Account
+    rule.when(fieldRef(requestType).eq("account")).show(accountId),
+    rule.when(fieldRef(requestType).eq("account")).show(actionType),
+    rule.when(fieldRef(requestType).eq("account")).require(accountId),
+    rule.when(fieldRef(requestType).neq("account")).hide(accountId),
+    rule.when(fieldRef(requestType).neq("account")).hide(actionType),
+  ],
+});
+```
+
+```tsx title="SupportFormPage.tsx"
+import { useCreateFormRuntime } from "formwright/react";
+import { FormRuntimeProvider, FormRuntimeRoot } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { registerAsyncPlugins } from "formwright/plugins-async";
+import { supportForm } from "./support-form";
+
+export function SupportFormPage() {
+  const runtime = useCreateFormRuntime({
+    form: supportForm,
+    plugins: [
+      ...registerBasicPlugins(),
+      ...registerAsyncPlugins(),
+    ],
+  });
+
+  return (
+    <FormRuntimeProvider runtime={runtime} hiddenFieldPolicy="clear">
+      <FormRuntimeRoot />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+---
+
+## Pattern-by-pattern comparison
+
+### Conditional visibility
+
+| | Ad-hoc | Formwright |
+|---|---|---|
+| How | `{isBilling && <Field />}` in JSX | `rule.when(...).show(field)` in schema |
+| Hidden values in payload | Included unless you call `unregister` | Excluded automatically with `hiddenFieldPolicy="clear"` |
+| Logic location | Scattered across the component tree | Centralized in `rules` array |
+
+### Conditional required
+
+**Ad-hoc** — repeat the condition in every `register()` call:
+
+```tsx
+<input
+  {...register("invoiceNumber", {
+    required: isBilling ? "Required" : false,
+  })}
+/>
+```
+
+**Formwright** — declare once in the schema. The runtime wires it into RHF automatically:
+
+```ts
+rule.when(fieldRef(requestType).eq("billing")).require(invoiceNumber),
+```
+
+### Async option loading
+
+**Ad-hoc** — each field manages its own fetch, loading state, and error handling:
+
+```tsx
+const [products, setProducts] = useState([]);
+const [loadingProducts, setLoadingProducts] = useState(false);
+
+useEffect(() => {
+  if (!isTechnical) return;
+  setLoadingProducts(true);
+  fetch("/api/products")
+    .then(r => r.json())
+    .then(setProducts)
+    .finally(() => setLoadingProducts(false));
+}, [isTechnical]);
+```
+
+**Formwright** — declare the data source in the schema. The `useDatasourceOptions` hook (called internally by the default renderer) handles fetching, caching, and loading state:
+
+```ts
+const productSource = datasource.remote("products", { url: "/api/products" });
+
+const product = field.select("product", {
+  label: "Product",
+  datasource: productSource,
+});
+```
+
+### Submit payload pollution
+
+**Ad-hoc** — user selects "billing", fills in `invoiceNumber`, then switches to "technical". The billing values are still mounted inside `{isBilling && ...}` — gone from the UI but alive in RHF state. The submit payload:
+
+```json
+{
+  "requestType": "technical",
+  "invoiceNumber": "INV-9982",
+  "billingEmail": "ap@acme.com",
+  "product": "platform",
+  "severity": "high",
+  "description": "Login broken after deploy"
+}
+```
+
+The billing fields the user abandoned are still there. Your backend has to strip them.
+
+**Formwright** with `hiddenFieldPolicy="clear"` — the runtime knows which fields are hidden and clears them before submission:
+
+```json
+{
+  "requestType": "technical",
+  "product": "platform",
+  "severity": "high",
+  "description": "Login broken after deploy"
+}
+```
+
+No backend stripping needed. The schema is the single source of truth for what belongs in the payload.
+
+---
+
+### Adding a fourth request type
+
+Requirements change. You need to add a "partnerships" type with two new fields.
+
+**Ad-hoc** — touch six places:
+
+```tsx
+// 1. New boolean
+const isPartnerships = requestType === "partnerships";
+
+// 2. New option in the select
+<option value="partnerships">Partnerships</option>
+
+// 3. New useEffect if any field has remote options
+useEffect(() => {
+  if (!isPartnerships) return;
+  // fetch...
+}, [isPartnerships]);
+
+// 4–5. New JSX block with inline conditional required on each field
+{isPartnerships && (
+  <>
+    <input
+      {...register("partnerName", {
+        required: isPartnerships ? "Required" : false,
+      })}
+    />
+    <input
+      {...register("partnerTier", {
+        required: isPartnerships ? "Required" : false,
+      })}
+    />
+  </>
+)}
+```
+
+Miss one `isPartnerships` guard and validation fires on a hidden field.
+
+**Formwright** — add fields and rules, nothing else:
+
+```ts
+// 1. New fields
+const partnerName = field.text("partnerName", { label: "Partner name" });
+const partnerTier = field.select("partnerTier", {
+  label: "Partner tier",
+  options: [
+    { value: "silver", label: "Silver" },
+    { value: "gold", label: "Gold" },
+  ],
+});
+
+// 2. Add to fields + layout
+fields: [...existingFields, partnerName, partnerTier],
+layout: layout.stack("root", [...existingLayout, layout.field(partnerName), layout.field(partnerTier)]),
+
+// 3. Rules
+rule.when(fieldRef(requestType).eq("partnerships")).show(partnerName),
+rule.when(fieldRef(requestType).eq("partnerships")).show(partnerTier),
+rule.when(fieldRef(requestType).eq("partnerships")).require(partnerName),
+rule.when(fieldRef(requestType).neq("partnerships")).hide(partnerName),
+rule.when(fieldRef(requestType).neq("partnerships")).hide(partnerTier),
+```
+
+The options array in `requestType` needs the new entry too. Every other concern — required, visibility, payload — is handled by the rules.
+
+---
+
+### Testing conditional logic
+
+**Ad-hoc** — testing conditional required means rendering the full component and simulating user interaction:
+
+```tsx
+import { render, screen, fireEvent } from "@testing-library/react";
+
+test("invoiceNumber is required when billing selected", async () => {
+  render(<SupportForm />);
+
+  fireEvent.change(screen.getByRole("combobox"), {
+    target: { value: "billing" },
+  });
+
+  fireEvent.click(screen.getByText("Submit"));
+
+  expect(
+    await screen.findByText("Invoice number is required")
+  ).toBeInTheDocument();
+});
+```
+
+You're testing DOM behavior and validation message strings — fragile, slow, and coupled to your render output.
+
+**Formwright** — the schema is a plain object. Test field state with `runtime.evaluate()`, no render needed:
+
+```ts
+import { createFormRuntime } from "formwright/core";
+import { registerBasicPlugins } from "formwright/plugins";
+import { supportForm } from "./support-form";
+
+const runtime = createFormRuntime({
+  form: supportForm,
+  plugins: registerBasicPlugins(),
+});
+
+test("billing: invoiceNumber required, technical fields hidden", () => {
+  const { fieldState } = runtime.evaluate({ requestType: "billing" });
+
+  expect(fieldState["invoiceNumber"].required).toBe(true);
+  expect(fieldState["invoiceNumber"].visible).toBe(true);
+  expect(fieldState["product"].visible).toBe(false);
+  expect(fieldState["severity"].visible).toBe(false);
+});
+
+test("technical: product required, billing fields hidden", () => {
+  const { fieldState } = runtime.evaluate({ requestType: "technical" });
+
+  expect(fieldState["product"].required).toBe(true);
+  expect(fieldState["invoiceNumber"].visible).toBe(false);
+  expect(fieldState["accountId"].visible).toBe(false);
+});
+```
+
+Pure function. No DOM. No user events. Runs in milliseconds. Every rule branch is testable in isolation.
+
+---
+
+## What changes and what stays the same
+
+**What changes:**
+- Conditional logic moves from component JSX into a `rules` array
+- Async loading moves from `useEffect` into a `datasource` declaration
+- Validation moves from `register()` options into field definitions and rules
+
+**What stays the same:**
+- React Hook Form handles submission, validation, and field registration under the hood
+- You keep full control of rendering via `fieldRendererMap`, `fieldSlots`, and `layoutRendererMap`
+- All RHF features (`handleSubmit`, `setValue`, `reset`, `watch`) still work through the provider
+
+## Next steps
+
+- [Conditional Fields](/docs/guides/conditional-fields) — full rule syntax reference
+- [Data Sources](/docs/guides/data-sources) — static, remote, and custom data loaders
+- [Customization](/docs/guides/customization) — swap out renderers and slots for your design system
