@@ -1,0 +1,292 @@
+---
+sidebar_position: 9
+---
+
+# Fields That Compute Themselves
+
+Some form fields don't need user input — they're derived from other fields. A full name built from first and last. A username slug constructed from a display name. An email auto-generated from an account identifier.
+
+The usual approach is a `useEffect` that watches the source fields and calls `setValue` when they change. It works, but it's outside the schema — another piece of behavior living in a component that has to be remembered, tested separately, and duplicated for every form that needs it.
+
+Formwright's `computed` option moves this into the schema where it belongs.
+
+## What it usually looks like (before)
+
+A registration form where `username` is auto-built from `firstName` and `lastName`.
+
+```tsx title="RegistrationForm.tsx"
+import { useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
+
+export function RegistrationForm() {
+  const { register, control, setValue, handleSubmit } = useForm();
+  const firstName = useWatch({ control, name: "firstName" });
+  const lastName = useWatch({ control, name: "lastName" });
+
+  // Derive username whenever source fields change
+  useEffect(() => {
+    if (!firstName && !lastName) return;
+    const slug = `${firstName ?? ""}${lastName ?? ""}`.toLowerCase().replace(/\s+/g, "");
+    setValue("username", slug, { shouldValidate: true });
+  }, [firstName, lastName, setValue]);
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <input {...register("firstName")} placeholder="First name" />
+      <input {...register("lastName")} placeholder="Last name" />
+      <input {...register("username")} placeholder="Username (auto-generated)" />
+      <button type="submit">Register</button>
+    </form>
+  );
+}
+```
+
+This works. The problems compound as the form grows.
+
+**Behavior scattered across files.** The rule "username = firstName + lastName" is in the component, not in the schema. Someone reading the schema sees the field but not how it's populated.
+
+**Testing requires rendering.** To verify the derivation logic, you have to render the component and simulate user input.
+
+**Duplication across forms.** If a second form derives a display name the same way, the `useEffect` gets copied.
+
+---
+
+## With Formwright: `computed` in the schema
+
+Declare computed fields in `buildForm`. The engine evaluates them on every `evaluate()` call and applies mutations through the provider automatically.
+
+```ts title="registration-form.ts"
+import { buildForm, defineForm, field, layout } from "formwright/schema";
+
+const firstName = field.text("firstName", { label: "First name" });
+const lastName = field.text("lastName", { label: "Last name" });
+const fullName = field.text("fullName", { label: "Full name" });
+const email = field.email("email", { label: "Email" });
+
+export const registrationForm = buildForm({
+  form: defineForm({ id: "registration" }),
+  fields: [firstName, lastName, fullName, email],
+  layout: layout.stack("root", [
+    layout.field(firstName),
+    layout.field(lastName),
+    layout.field(fullName),
+    layout.field(email),
+  ]),
+  computed: [
+    {
+      target: "fullName",
+      // `concat` joins values as strings — the built-in computed operator
+      expression: {
+        concat: [{ var: "firstName" }, " ", { var: "lastName" }],
+      },
+      runOn: ["firstName", "lastName"],
+    },
+  ],
+});
+```
+
+`runOn` declares which fields trigger recomputation. When `firstName` or `lastName` changes, the engine recomputes `fullName` and writes it into the form via `setValue`. No `useEffect`, no `useWatch`, no component code.
+
+### Render
+
+```tsx title="RegistrationPage.tsx"
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { registrationForm } from "./registration-form";
+
+export function RegistrationPage() {
+  const runtime = useCreateFormRuntime({
+    form: registrationForm,
+    plugins: registerBasicPlugins(),
+  });
+
+  return (
+    <FormRuntimeProvider runtime={runtime}>
+      <FormRuntimeRoot rootLayoutId="root" />
+    </FormRuntimeProvider>
+  );
+}
+```
+
+No derivation logic in the component. The provider re-evaluates whenever `firstName` or `lastName` changes and applies the mutation.
+
+---
+
+## More `concat` patterns
+
+`concat` is the built-in computed operator. It joins any mix of field values and string literals.
+
+### Email from account identifier
+
+```ts
+computed: [
+  {
+    target: "workEmail",
+    expression: {
+      concat: [{ var: "username" }, "@", { var: "companyDomain" }],
+    },
+    runOn: ["username", "companyDomain"],
+  },
+]
+```
+
+### Display label from code and description
+
+```ts
+computed: [
+  {
+    target: "productLabel",
+    expression: {
+      concat: [{ var: "productCode" }, " — ", { var: "productName" }],
+    },
+    runOn: ["productCode", "productName"],
+  },
+]
+```
+
+### Reference number from form metadata
+
+```ts
+computed: [
+  {
+    target: "referenceId",
+    expression: {
+      concat: ["REF-", { var: "year" }, "-", { var: "sequenceNumber" }],
+    },
+    runOn: ["year", "sequenceNumber"],
+  },
+]
+```
+
+---
+
+## Arithmetic computed fields
+
+`concat` handles string derivation. For arithmetic — `total = qty × price`, `discount = subtotal × rate` — computed fields need a custom operator plugin.
+
+### Write the operator
+
+```ts title="plugins/multiply-operator.ts"
+import type { OperatorPlugin } from "formwright/core";
+
+export const multiplyPlugin: OperatorPlugin = {
+  kind: "operator",
+  identity: { name: "multiply", version: "1" },
+  key: "multiply",
+
+  evaluate({ expression, values }) {
+    // expression shape: { multiply: [exprA, exprB] }
+    const [a, b] = expression.multiply as [unknown, unknown];
+    const resolve = (v: unknown): number => {
+      if (typeof v === "object" && v !== null && "var" in v) {
+        return Number(values[(v as { var: string }).var] ?? 0);
+      }
+      return Number(v);
+    };
+    return resolve(a) * resolve(b);
+  },
+};
+```
+
+### Register it
+
+```tsx
+import { registerBasicPlugins } from "formwright/plugins";
+import { multiplyPlugin } from "./plugins/multiply-operator";
+
+const runtime = useCreateFormRuntime({
+  form: invoiceForm,
+  plugins: [...registerBasicPlugins(), multiplyPlugin],
+});
+```
+
+### Use it in computed
+
+```ts title="invoice-form.ts"
+computed: [
+  {
+    target: "lineTotal",
+    expression: {
+      multiply: [{ var: "qty" }, { var: "unitPrice" }],
+    },
+    runOn: ["qty", "unitPrice"],
+  },
+]
+```
+
+`lineTotal` updates automatically when `qty` or `unitPrice` changes. No `useEffect`, no watcher. Same pattern as `concat` — just a plugin call away.
+
+---
+
+## Displaying computed fields as read-only
+
+Computed fields are still registered in RHF and accept user input unless you lock them. Use a rule to disable them:
+
+```ts
+import { rule, fieldRef } from "formwright/schema";
+
+rules: [
+  // Lock computed field — user can't override the derived value
+  rule.when(fieldRef(firstName).exists()).disable(fullName),
+]
+```
+
+Or render them differently via `fieldSlots` — show the derived value as plain text instead of an input:
+
+```tsx
+const fieldSlots = {
+  Control: ({ value, state, field, defaultControl }) => {
+    if (field.path === "fullName" && state.disabled) {
+      return <p className="text-sm font-medium">{String(value ?? "—")}</p>;
+    }
+    return defaultControl;
+  },
+};
+```
+
+---
+
+## Testing computed logic
+
+Because `runtime.evaluate()` is a pure function, testing computed derivations needs no React:
+
+```ts
+import { createFormRuntime } from "formwright/core";
+import { registerBasicPlugins } from "formwright/plugins";
+import { registrationForm } from "./registration-form";
+
+const runtime = createFormRuntime({
+  form: registrationForm,
+  plugins: registerBasicPlugins(),
+});
+
+test("fullName updates when firstName or lastName changes", () => {
+  const { values } = runtime.evaluate({ firstName: "Ada", lastName: "Lovelace" });
+  expect(values["fullName"]).toBe("Ada Lovelace");
+});
+
+test("fullName handles empty firstName", () => {
+  const { values } = runtime.evaluate({ firstName: "", lastName: "Lovelace" });
+  expect(values["fullName"]).toBe(" Lovelace");
+});
+```
+
+No render, no DOM, no `userEvent`. The computed expression is logic — test it like logic.
+
+## What changes and what stays the same
+
+**What changes:**
+- Derivation logic moves from `useEffect` + `setValue` in components into `computed` in the schema
+- `runOn` makes dependencies explicit — no hidden watchers
+- Arithmetic derivations need a small operator plugin, but then work identically
+
+**What stays the same:**
+- Computed fields are normal RHF-registered fields — they appear in the submit payload
+- You can still override a computed value by typing in the field (unless you disable it with a rule)
+- All Formwright rules (show/hide/require) apply to computed fields the same as any other field
+
+## See also
+
+- [Schema API](/docs/reference/schema-api) — `computed` option in `buildForm`
+- [Plugins](/docs/guides/plugins) — writing custom operator plugins
+- [One Schema, Two Modes](/docs/cookbook/view-edit-mode) — combine computed fields with view/edit context

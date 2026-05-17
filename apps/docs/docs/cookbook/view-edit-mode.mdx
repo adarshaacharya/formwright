@@ -1,0 +1,253 @@
+---
+sidebar_position: 8
+---
+
+# One Schema, Two Modes: View and Edit
+
+Almost every CRUD app has this pattern: a form for editing, and a read-only detail view showing the same data. Most teams build them separately — a `<ProfileForm>` component and a `<ProfileDetail>` component — and keep them in sync when fields change.
+
+That's two components, two layouts, and two places to update when a field gets added, renamed, or restructured.
+
+Formwright collapses them into one.
+
+## The problem with separate components
+
+A user profile with a few fields. You build the form:
+
+```tsx title="ProfileForm.tsx"
+export function ProfileForm({ initialValues, onSave }) {
+  const { register, handleSubmit } = useForm({ defaultValues: initialValues });
+
+  return (
+    <form onSubmit={handleSubmit(onSave)}>
+      <label>Full name</label>
+      <input {...register("fullName")} />
+
+      <label>Email</label>
+      <input type="email" {...register("email")} />
+
+      <label>Role</label>
+      <select {...register("role")}>
+        <option value="admin">Admin</option>
+        <option value="member">Member</option>
+      </select>
+
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+```
+
+And the read-only view:
+
+```tsx title="ProfileDetail.tsx"
+export function ProfileDetail({ profile }) {
+  return (
+    <dl>
+      <dt>Full name</dt>
+      <dd>{profile.fullName}</dd>
+
+      <dt>Email</dt>
+      <dd>{profile.email}</dd>
+
+      <dt>Role</dt>
+      <dd>{profile.role}</dd>
+    </dl>
+  );
+}
+```
+
+Then a field gets added — say, `department`. You update `ProfileForm`. You update `ProfileDetail`. You update the type. Three changes, one new field.
+
+This happens every sprint.
+
+---
+
+## With Formwright: one schema, context-driven mode
+
+Pass `mode` as runtime context. Rules read it with `contextRef` and disable or hide fields accordingly. One schema, both modes.
+
+### Schema
+
+```ts title="profile-form.ts"
+import {
+  buildForm,
+  defineForm,
+  field,
+  layout,
+  rule,
+  contextRef,
+  fieldRef,
+} from "formwright/schema";
+
+const fullName = field.text("fullName", { label: "Full name" });
+const email = field.email("email", { label: "Email" });
+const role = field.select("role", {
+  label: "Role",
+  options: [
+    { value: "admin", label: "Admin" },
+    { value: "member", label: "Member" },
+    { value: "viewer", label: "Viewer" },
+  ],
+});
+const department = field.text("department", { label: "Department" });
+
+// Admin-only field — visible to admins in edit mode only
+const internalNotes = field.textarea("internalNotes", { label: "Internal notes" });
+
+export const profileForm = buildForm({
+  form: defineForm({ id: "profile" }),
+  fields: [fullName, email, role, department, internalNotes],
+  layout: layout.stack("root", [
+    layout.field(fullName),
+    layout.field(email),
+    layout.field(role),
+    layout.field(department),
+    layout.field(internalNotes),
+  ]),
+  rules: [
+    // In view mode, disable all fields — no inputs, just displayed values
+    rule.when(contextRef("mode").eq("view")).disableAll(),
+
+    // internalNotes only visible to admins
+    rule.when(contextRef("role").eq("admin")).show(internalNotes),
+    rule.when(contextRef("role").neq("admin")).hide(internalNotes),
+  ],
+});
+```
+
+`contextRef("mode")` reads from the context object passed to `useCreateFormRuntime`. Rules evaluate it on every render — switching mode re-evaluates the entire rule set instantly.
+
+### Component
+
+```tsx title="ProfilePage.tsx"
+import { useState } from "react";
+import { FormRuntimeProvider, FormRuntimeRoot, useCreateFormRuntime } from "formwright/react";
+import { registerBasicPlugins } from "formwright/plugins";
+import { profileForm } from "./profile-form";
+
+interface ProfilePageProps {
+  profile: Record<string, unknown>;
+  currentUserRole: "admin" | "member" | "viewer";
+}
+
+export function ProfilePage({ profile, currentUserRole }: ProfilePageProps) {
+  const [mode, setMode] = useState<"view" | "edit">("view");
+
+  const runtime = useCreateFormRuntime({
+    form: profileForm,
+    plugins: registerBasicPlugins(),
+    context: {
+      mode,
+      role: currentUserRole,
+    },
+  });
+
+  async function onSubmit(values: Record<string, unknown>) {
+    await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    setMode("view");
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1>Profile</h1>
+        {mode === "view" ? (
+          <button onClick={() => setMode("edit")}>Edit</button>
+        ) : (
+          <button onClick={() => setMode("view")}>Cancel</button>
+        )}
+      </div>
+
+      <FormRuntimeProvider
+        runtime={runtime}
+        initialValues={profile}
+        onSubmit={onSubmit}
+      >
+        <FormRuntimeRoot rootLayoutId="root" />
+        {mode === "edit" && (
+          <button type="submit">Save changes</button>
+        )}
+      </FormRuntimeProvider>
+    </div>
+  );
+}
+```
+
+`context` flows into `runtime` at creation time. When `mode` changes, `useCreateFormRuntime` re-creates the runtime with the new context and the rules re-evaluate. The UI switches between editable inputs and disabled display in a single re-render.
+
+## What "disabled" looks like in view mode
+
+By default, disabled inputs still render as `<input disabled>` — not ideal for a read-only detail view. Replace the rendering for disabled state with your own display component using `fieldSlots`:
+
+```tsx title="components/FormRoot.tsx"
+import { FormRuntimeRoot, type FieldRendererSlots } from "formwright/react";
+
+const fieldSlots: FieldRendererSlots = {
+  Control: ({ value, state, defaultControl }) => {
+    // In view mode, render value as plain text instead of a disabled input
+    if (state.disabled) {
+      return (
+        <p className="text-sm py-2 text-foreground">
+          {value != null && value !== "" ? String(value) : "—"}
+        </p>
+      );
+    }
+    return defaultControl;
+  },
+};
+
+export function FormRoot() {
+  return <FormRuntimeRoot rootLayoutId="root" fieldSlots={fieldSlots} />;
+}
+```
+
+Now view mode renders clean `<p>` text. Edit mode renders your normal inputs. Same component, same slot, same schema.
+
+## Role-based field visibility on top of mode
+
+The `internalNotes` field in the schema above uses `contextRef("role")` alongside `contextRef("mode")`. Context can carry as many values as you need — role, permissions, tenant, feature flags.
+
+```ts
+rules: [
+  rule.when(contextRef("mode").eq("view")).disableAll(),
+
+  // Only admins see internal notes, regardless of mode
+  rule.when(contextRef("role").eq("admin")).show(internalNotes),
+  rule.when(contextRef("role").neq("admin")).hide(internalNotes),
+
+  // Managers can edit role, others cannot
+  rule.when(contextRef("role").neq("manager")).disable(role),
+]
+```
+
+```tsx
+context: {
+  mode,
+  role: currentUserRole,    // "admin" | "manager" | "member"
+}
+```
+
+Rules compose. The engine evaluates all of them on every render and derives the final state per field.
+
+## What changes and what stays the same
+
+**What changes:**
+- One schema replaces a form component and a detail display component
+- Adding a field means editing the schema once — view and edit mode update together
+- Role-based visibility is declared in rules, not scattered across two component trees
+
+**What stays the same:**
+- RHF still manages form state, submission, and validation
+- You control how disabled fields render via `fieldSlots`
+- `onSubmit` only fires when the user actually submits — not on mode toggle
+
+## See also
+
+- [Conditional Fields](/docs/guides/conditional-fields) — `contextRef` syntax and available rule effects
+- [Bring Your Own Components](/docs/cookbook/design-system-wiring) — customize disabled field rendering with `fieldSlots`
+- [Schema API](/docs/reference/schema-api) — `contextRef`, `rule.when(...).disableAll()`
