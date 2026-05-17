@@ -21,6 +21,8 @@ Schema-driven form engine for React. Define fields, layout, rules, and data sour
 npm install formwright@latest react-hook-form
 ```
 
+If you want to understand use cases on one shot, please [view cookbook here](https://adarshaacharya.github.io/formwright/docs/cookbook/from-adhoc-to-schema)
+
 ## Quick example
 
 ```tsx
