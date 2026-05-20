@@ -1,0 +1,67 @@
+---
+sidebar_position: 1
+---
+
+# AI Skills for Formwright
+
+Formwright ships an **agent skill** — a machine-readable knowledge file that coding agents (Claude Code, Cursor, Copilot Workspace, etc.) load automatically when you're working on a Formwright project. The skill gives your agent accurate, up-to-date knowledge of the Formwright API so it can generate correct schemas, rules, hooks, and plugins without hallucinating.
+
+## What's inside
+
+The skill bundles four reference files the agent reads on demand:
+
+| Reference | Contents |
+|---|---|
+| `schema-builder.md` | All `field.*`, `layout.*`, `rule.*`, `datasource.*` helpers |
+| `react-integration.md` | `FormRuntimeProvider`, `FormRuntimeRoot`, all hooks, custom renderers |
+| `plugins.md` | Authoring field / operator / effect / validator / datasource plugins |
+| `patterns.md` | Ready-to-use patterns: conditional fields, cascading selects, multi-step, view/edit mode, testing |
+
+## Install
+
+The skill uses the [`npx skills`](https://skills.sh) package manager. Run this once in your project or globally:
+
+```bash
+# Project-local (recommended)
+npx skills add adarshaacharya/formwright --skill formwright
+
+# Global (available in all projects)
+npx skills add adarshaacharya/formwright --skill formwright -g
+```
+
+After install, the skill is active. You don't need to restart your editor.
+
+:::tip Verifying install
+Run `npx skills check` to confirm the skill is installed and up to date.
+:::
+
+## Update
+
+```bash
+npx skills update
+```
+
+## Usage
+
+Once installed, just work on your form — the agent picks up the skill automatically when it detects Formwright imports or when you mention forms, schemas, or related keywords.
+
+You can also be explicit:
+
+```
+"Using formwright, build a checkout form with conditional address fields"
+"Add a cascading country/state select to this form"
+"Write a custom operator plugin for Formwright that checks if a value starts with a prefix"
+```
+
+The agent will consult the skill and generate code that matches Formwright's actual API.
+
+## What the agent can do with the skill
+
+- Generate complete `buildForm(...)` schemas from a description
+- Add conditional show/hide, require, disable rules
+- Wire up `FormRuntimeProvider` and `FormRuntimeRoot` correctly
+- Write custom renderer components using `useFormField`, `useFormArray`
+- Build datasource plugins for remote option loading
+- Write custom operator and effect plugins
+- Write Vitest tests for rule behavior
+- Refactor ad-hoc RHF forms to schema-driven Formwright forms

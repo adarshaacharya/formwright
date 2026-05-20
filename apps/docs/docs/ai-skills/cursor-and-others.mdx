@@ -1,0 +1,52 @@
+---
+sidebar_position: 3
+---
+
+# Cursor, Copilot & Other Agents
+
+The Formwright skill works with any coding agent that supports the [Skills CLI](https://skills.sh) format — not just Claude Code. This includes Cursor and any other agent that reads `.claude/skills/` or equivalent skill directories.
+
+## Install
+
+```bash
+npx skills add adarshaacharya/formwright --skill formwright
+```
+
+The skill installs to `.claude/skills/formwright/` in your project. Most agents that support the Skills format will pick it up automatically from there.
+
+## What agents get
+
+The skill is plain Markdown — no runtime code, no executables. It's a structured knowledge base that agents read when they need to generate or reason about Formwright code:
+
+```
+.claude/skills/formwright/
+├── SKILL.md                        ← entry point, description, quick reference
+└── references/
+    ├── schema-builder.md           ← field.*, layout.*, rule.*, datasource.*
+    ├── react-integration.md        ← Provider, Root, hooks, renderers
+    ├── plugins.md                  ← custom plugin authoring
+    └── patterns.md                 ← common recipes with working code
+```
+
+## Using the skill in CURSOR_RULES or system prompts
+
+If your agent doesn't auto-detect skills directories, you can reference the skill manually in your `.cursorrules`, `.cursor/rules`, or agent system prompt:
+
+```
+When working with Formwright forms, refer to the API reference at
+.claude/skills/formwright/references/schema-builder.md and
+.claude/skills/formwright/references/react-integration.md.
+```
+
+## Manual install (without npx skills)
+
+If you prefer not to use the Skills CLI:
+
+1. Clone or download the skill files from the Formwright GitHub repository
+2. Copy the `formwright/` skill directory to `.claude/skills/` in your project
+3. Commit it alongside your code
+
+```bash
+# From the formwright repo root:
+cp -r .claude/skills/formwright /path/to/your-project/.claude/skills/
+```
