@@ -21,7 +21,15 @@ Schema-driven form engine for React. Define fields, layout, rules, and data sour
 npm install formwright@latest react-hook-form
 ```
 
-If you want to understand use cases on one shot, please [view cookbook here](https://adarshaacharya.github.io/formwright/docs/cookbook/from-adhoc-to-schema)
+## Skills 
+Formwright is agent ready, use our skills and let agent do rest of the work. Refer [full docs on agents skills setup](https://adarshaacharya.github.io/formwright/docs/ai-skills/overview) for different coding agents .
+
+```bash
+npx skills add adarshaacharya/formwright --skill formwright
+```
+
+## Cookbook
+If you want to understand different use cases of Formwright without thinking too much, please [view cookbook here](https://adarshaacharya.github.io/formwright/docs/cookbook/from-adhoc-to-schema)
 
 ## Quick example
 
@@ -67,6 +75,7 @@ Full documentation at **[adarshaacharya.github.io/formwright](https://adarshaach
 - [Mental model](https://adarshaacharya.github.io/formwright/docs/concepts/mental-model)
 - [Customization](https://adarshaacharya.github.io/formwright/docs/guides/customization)
 - [API reference](https://adarshaacharya.github.io/formwright/docs/reference/schema-api)
+- [Skills](https://adarshaacharya.github.io/formwright/docs/ai-skills/overview)
 
 ## Peer dependencies
 
