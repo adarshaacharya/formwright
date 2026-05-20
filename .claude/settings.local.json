@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:skills.sh)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(ln -s /Users/adarsha/Coding/personal/formwright/skills/formwright /Users/adarsha/Coding/personal/formwright/.claude/skills/formwright)",
+      "Bash(git remote *)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(curl *)",
+      "Bash(gh search *)",
+      "Bash(gh issue *)",
+      "Bash(mkdir -p /Users/adarsha/Coding/personal/formwright/skills/formwright/references)",
+      "Bash(mv /Users/adarsha/Coding/personal/formwright/skills/formwright/schema-builder.md /Users/adarsha/Coding/personal/formwright/skills/formwright/references/)",
+      "Bash(mv /Users/adarsha/Coding/personal/formwright/skills/formwright/react-integration.md /Users/adarsha/Coding/personal/formwright/skills/formwright/references/)",
+      "Bash(mv /Users/adarsha/Coding/personal/formwright/skills/formwright/plugins.md /Users/adarsha/Coding/personal/formwright/skills/formwright/references/)",
+      "Bash(mv /Users/adarsha/Coding/personal/formwright/skills/formwright/patterns.md /Users/adarsha/Coding/personal/formwright/skills/formwright/references/)"
+    ]
+  }
+}

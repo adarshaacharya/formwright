@@ -1,0 +1,65 @@
+---
+sidebar_position: 2
+---
+
+# Claude Code
+
+[Claude Code](https://claude.ai/code) is Anthropic's official CLI for Claude. With the Formwright skill installed, Claude Code understands the full Formwright API and can generate, refactor, and debug forms without looking anything up.
+
+## Install the skill
+
+```bash
+npx skills add adarshaacharya/formwright --skill formwright
+```
+
+This installs the skill project-locally in `.claude/skills/formwright/`. Commit this directory so your whole team benefits.
+
+For a global install (available in every project):
+
+```bash
+npx skills add adarshaacharya/formwright --skill formwright -g
+
+```
+
+## What it unlocks
+
+Claude Code will automatically use the skill when it sees Formwright imports in your project or when you ask about forms. The skill gives it:
+
+- **Schema builder** — every `field.*`, `layout.*`, `rule.*` helper with correct signatures
+- **React integration** — `FormRuntimeProvider`, `FormRuntimeRoot`, hooks, slot overrides
+- **Plugin authoring** — field, operator, effect, validator, datasource plugin interfaces
+- **Patterns** — working examples for every common form pattern
+
+## Example prompts
+
+```
+"Build a registration form with first name, last name, email, and a plan selector.
+Show the 'Company name' field only when the plan is 'team' or 'enterprise'."
+```
+
+```
+"Refactor this RHF form to use Formwright's schema-driven approach.
+Keep the same field names."
+```
+
+```
+"Add a cascading country → state → city select using remote datasources
+that fetch from /api/countries, /api/states, and /api/cities."
+```
+
+```
+"Write a custom operator plugin called 'startsWith' so I can use it in my
+Formwright rules to check if a text field begins with a prefix."
+```
+
+```
+"Add Vitest tests for all the show/hide rules in my checkout form schema."
+```
+
+## How to keep it current
+
+```bash
+npx skills update
+```
+
+Run this whenever you upgrade Formwright to make sure the skill matches your version.
