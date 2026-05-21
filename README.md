@@ -77,6 +77,10 @@ Full documentation at **[adarshaacharya.github.io/formwright](https://adarshaach
 - [API reference](https://adarshaacharya.github.io/formwright/docs/reference/schema-api)
 - [Skills](https://adarshaacharya.github.io/formwright/docs/ai-skills/overview)
 
+For npm package [check here](https://www.npmjs.com/package/formwright) 
+
+
+
 ## Peer dependencies
 
 - `react >= 18`
